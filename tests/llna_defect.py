@@ -11,7 +11,7 @@ import torch as tc
 import sys
 sys.path.insert(0, '..') # TODO: this is probably not the right way to do this
 from src.na.llna import LLNA
-    
+
 # %% make instance of Life-Like NA
 
 resolution=5
@@ -39,14 +39,18 @@ H.shape
 
 # %% plot TEPs
 # Q: how are these ordered?
-
-for Hi in H:
-    plt.imshow(Hi, cmap='Greys')
-    plt.show()
+fig, ax = plt.subplots(3,1, sharex=True, sharey=True)
+titles = ['original TEPs', 'disturbed TEPs']
+for i, Hi in enumerate(H):
+    ax[i].imshow(Hi, cmap='Greys')
+    ax[i].set(title=titles[i])
 
 # %% plot defect
 Hdef = abs(H[1] - H[0])
-plt.imshow(Hdef, cmap='Greys')
+ax[2].imshow(Hdef, cmap='Greys')
+ax[2].set(title='defect propagation')
+
+plt.tight_layout()
 plt.show()
-    
+
 # %% end

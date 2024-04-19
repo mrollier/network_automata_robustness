@@ -63,7 +63,6 @@ class LLNA(tc.nn.Module):
         H   : float tensor of shape [L x T+1 x N] (the initial configuration plus T steps)
         """
         H = [ht]
-        P = []
         for t in range(T):
             ht = self.step(E, ht.detach())
             H.append(ht)
