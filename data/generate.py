@@ -1,6 +1,7 @@
 # %% packages
 
 # specialised
+import os
 import numpy as np
 import pandas as pd
 import igraph as ig
@@ -22,6 +23,9 @@ df_params.index.name = 'id'
 df_params.to_csv('parameters.csv')
 
 
+# %% create output folder if not exists yet
+os.makedirs('graphs/')
+
 # %% generate list of networks
 np.random.gauss = np.random.normal # for compatibility with igraph
 ig.set_random_number_generator(np.random)
@@ -40,7 +44,7 @@ for i, row in df_params.iterrows():
 	# the next "INITS_PER_GRAPH" lines are 0-1 lists denoting "qt_nodes" initial states
 	# the next "qt_edges" lines are pairs describing the node ids for each edges
 	# all values are separated by single space
-	with open(f'input/network_{i:04d}.txt', 'w') as f:
+	with open(f'graphs/network_{i:04d}.txt', 'w') as f:
 		f.write( f'{qt_nodes} {qt_edges} {INITS_PER_GRAPH}\n' )
 		for j in range(INITS_PER_GRAPH):
 			h0 = np.random.randint(0, 2, qt_nodes, int)
