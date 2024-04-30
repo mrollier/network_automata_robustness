@@ -10,7 +10,7 @@ import torch as tc
 # custom
 import sys
 sys.path.insert(0, '..') # TODO: this is probably not the right way to do this
-from src.na.llna import LLNA
+from src.automata import LLNA
     
 # %% make instance of Life-Like NA
 

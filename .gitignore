@@ -1,3 +1,4 @@
 figures
+data/teps
 *.pyc
 *.ipynb_checkpoints/*
