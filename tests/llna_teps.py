@@ -41,9 +41,11 @@ for X,Y in all_rules_from(RESOLUTION, 2):
         Ht = restore_shape(automaton(E, H0, T=NUM_STEPS))
         
         # save TEPs
-        file_name = dataset.files[i].split('/')[-1].split('.')[0]
+        # NOTE: Michiel changed the split argument to \\ for his local machine
+        file_name = dataset.files[i].split('\\')[-1].split('.')[0]
         save_tensor(full_path, file_name, Ht, verbose=False)
         pbar.update()
     pbar.close()
 
 # %% end
+
