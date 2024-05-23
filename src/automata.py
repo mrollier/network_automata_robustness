@@ -10,9 +10,10 @@ from functools import reduce
 class LLNA(tc.nn.Module):
 	def __init__(self, resolution:int, x:list=None, y:list=None):
 		super(LLNA, self).__init__()
-		self.conv_gnn = tg.nn.conv.SimpleConv(aggr='mean')
+		self.conv_gnn = tg.nn.conv.SimpleConv(aggr='mean', combine_root=None)
 		self._resolution = resolution
 		self.rule = (x, y)
+		self.callback = None
 	
 	def __str__(self):
 		concat = lambda arr: reduce(lambda x,y: x+y, map(str, arr), '')
@@ -52,6 +53,8 @@ class LLNA(tc.nn.Module):
 		R = self.interval_encoding(p)
 		b = tc.matmul(R, self._x).squeeze(2) * (1-h)
 		s = tc.matmul(R, self._y).squeeze(2) * h
+		if self.callback is not None:
+			self.callback({ 'E':E, 'h':h, 'p':p, 'R':R, 'b':b, 's':s })
 		return (b + s)
 	
 	def forward(self, E:tc.Tensor, ht:tc.Tensor, T:int=1):
@@ -59,7 +62,8 @@ class LLNA(tc.nn.Module):
 		==========
 		input
 		==========
-		E   : long tensor of shape [2 x M], where M is the number os edges
+		E   : long tensor of shape [2 x M], where M is the number of directed edges 
+		      (for undirected graphs, ensure the existance of both (vi, vj) and (vj, vi) in E)
 		ht  : float tensor of shape [L x N], where N and L are the number of nodes and initial configurations
 		T   : number of steps to run the automaton
 		
