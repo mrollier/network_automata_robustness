@@ -24,7 +24,7 @@ df_params.to_csv('parameters.csv')
 
 
 # %% create output folder if not exists yet
-os.makedirs('graphs/')
+os.makedirs('graphs/', exist_ok=True)
 
 # %% generate list of networks
 np.random.gauss = np.random.normal # for compatibility with igraph
@@ -39,17 +39,17 @@ for i, row in df_params.iterrows():
 	qt_nodes = len(graph.vs)
 	qt_edges = len(graph.es)
 	
-	# the file will have "1 + INITS_PER_GRAPH + qt_edges" lines
+	# the file will have "1 + qt_edges + INITS_PER_GRAPH" lines
 	# the first line informs the number of nodes, edges and initial configurations, respectively
-	# the next "INITS_PER_GRAPH" lines are 0-1 lists denoting "qt_nodes" initial states
 	# the next "qt_edges" lines are pairs describing the node ids for each edges
+	# the last "INITS_PER_GRAPH" lines are 0-1 lists denoting "qt_nodes" initial states
 	# all values are separated by single space
 	with open(f'graphs/network_{i:04d}.txt', 'w') as f:
 		f.write( f'{qt_nodes} {qt_edges} {INITS_PER_GRAPH}\n' )
-		for j in range(INITS_PER_GRAPH):
-			h0 = np.random.randint(0, 2, qt_nodes, int)
-			f.write( ' '.join(map(str, h0))  + '\n' )
 		edge_list = [ e.tuple for e in graph.es ]
 		f.write( '\n'.join(map(lambda e: f'{e[0]} {e[1]}', edge_list)) )
+		for j in range(INITS_PER_GRAPH):
+			h0 = np.random.randint(0, 2, qt_nodes, int)
+			f.write( '\n' + ' '.join(map(str, h0)) )
 
 # %% end
