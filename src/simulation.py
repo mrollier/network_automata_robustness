@@ -63,7 +63,6 @@ def save_tensor(path, name, data, verbose=False):
 		print(f.name + ' saved in disk')
 
 def load_tensor(path, name, verbose=False):
-	os.makedirs(path, exist_ok=True)
 	with open(os.path.join(path, f'{name}.pkl'), 'rb') as f:
 		data = pickle.load(f).long()
 	if verbose:
