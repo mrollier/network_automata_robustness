@@ -2,7 +2,6 @@
 
 # classic
 import os
-import ntpath
 import shutil
 import torch as tc
 from tqdm import tqdm
@@ -20,8 +19,8 @@ from src.simulation import *
 # %% generate time-evolution patterns and save at disk
 
 # global parameters (be careful when changing numeric variables to higher values)
-INPUT_PATH = '../data/graphs'
-OUTPUT_PATH = '../data/teps'
+INPUT_PATH = join_path('..', 'data', 'graphs')
+OUTPUT_PATH = join_path('..', 'data', 'teps')
 RESOLUTION = [2]
 NUM_STEPS = 50
 MAX_INITS = 1
@@ -48,7 +47,7 @@ for R in RESOLUTION:
 	for X,Y in all_rules_from(R, 2):
 		automaton = LLNA(R, X, Y)
 		rule_desc = str(automaton)
-		temp_folder = os.path.join(OUTPUT_PATH, rule_desc)
+		temp_folder = join_path(OUTPUT_PATH, rule_desc)
 		pbar = tqdm(total=len(dataset), desc=f'{rule_desc:16s}', position=0, leave=True)
 		
 		# calculate TEPs for all graphs in dataset, for all possible disturbs
@@ -64,14 +63,13 @@ for R in RESOLUTION:
 		    Ht = restore_shape(automaton(E, H0, T=NUM_STEPS))
 		    
 		    # save TEPs in temporary folder
-		    file_name = ntpath.basename(dataset.filenames[i]).split('.')[0]
+		    file_name = os.path.basename(dataset.filenames[i]).split('.')[0]
 		    save_tensor(temp_folder, file_name, Ht, verbose=False)
 		    pbar.update()
 		pbar.close()
 		
 		# compress temporary folder into a zip file named after the automaton rule
-		compressed_file = os.path.join(OUTPUT_PATH, rule_desc)
-		shutil.make_archive(compressed_file, 'zip', temp_folder)
+		shutil.make_archive(temp_folder, 'zip', temp_folder)
 		shutil.rmtree(temp_folder)
 
 # %% end
