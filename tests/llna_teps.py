@@ -3,7 +3,6 @@
 # classic
 import os
 import shutil
-import torch as tc
 from tqdm import tqdm
 
 # specialised
