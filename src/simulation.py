@@ -5,8 +5,13 @@ import os
 import pickle
 import torch as tc
 import itertools as itt
+from functools import reduce
 
 # %% utilitary functions
+def join_path(*path_parts):
+	joined = reduce(os.path.join, path_parts)
+	normalized = os.path.normpath(joined)
+	return normalized
 
 def orth_disturbs(h:tc.Tensor, append:bool=True) -> tc.Tensor:
 	"""
@@ -57,14 +62,13 @@ def all_rules_from(n_components:int, n_transisions:int):
 
 def save_tensor(path, name, data, verbose=False):
 	os.makedirs(path, exist_ok=True)
-	with open(os.path.join(path, f'{name}.pkl'), 'wb') as f:
+	with open(join_path(path, f'{name}.pkl'), 'wb') as f:
 		pickle.dump(data.bool(), f)
 	if verbose:
 		print(f.name + ' saved in disk')
 
 def load_tensor(path, name, verbose=False):
-	os.makedirs(path, exist_ok=True)
-	with open(os.path.join(path, f'{name}.pkl'), 'rb') as f:
+	with open(join_path(path, f'{name}.pkl'), 'rb') as f:
 		data = pickle.load(f).long()
 	if verbose:
 		print(f.name + ' loaded from disk')
