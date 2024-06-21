@@ -41,3 +41,32 @@ def jacobian(graph:ig.Graph, model:LLNA, states:np.ndarray, return_next:bool=Fal
     if return_next:
         return J.T, states_all_next[0]
     return J.T
+
+def lyapunov_gamma(graph:ig.Graph, model:LLNA, states:np.ndarray, T:int) -> np.ndarray:
+    N = len(states)
+
+    # get ID of edges (bidirectional)
+    graph.to_directed()
+    edges = tc.tensor(graph.get_edgelist()).T
+    graph.to_undirected()
+
+    # parallellise all possible defects
+    states_original = np.tile(states, (N,1))
+    states_perturbed = (states_original + np.diag(np.ones(N, dtype=int))) % 2
+    # dimensions of states: [defect_index, time, node]
+    states_original = np.array(model.forward(edges, tc.tensor(states_original), T=T), dtype=int)
+    states_perturbed = np.array(model.forward(edges, tc.tensor(states_perturbed), T=T), dtype=int)
+
+    # find defects and indicate nodes with a defect history with a 1
+    deltas = (states_original + states_perturbed) % 2
+    deltas_cum = np.cumsum(deltas, axis=1)
+    deltas_cum = np.clip(deltas_cum, 0, 1)
+
+    # define subgraph for each of the defects at time step T
+    diameters = []
+    for delta_cum in deltas_cum[:,-1,:]:
+        delta_nodes, = np.where(delta_cum)
+        subG = G.subgraph(delta_nodes)
+        diameter = subG.diameter()
+        diameters += [diameter]
+    return np.array(diameters)
