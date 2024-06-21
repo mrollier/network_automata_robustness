@@ -4,15 +4,35 @@
 import numpy as np
 import torch as tc
 import igraph as ig
+from typing import Union, Tuple
+
 # particular packages
 from src.automata import LLNA
 
 # %% utilitary functions
-def jacobian(graph:ig.Graph, model:LLNA, states:np.ndarray, return_next:bool=False) -> np.ndarray:
+def jacobian(graph:ig.Graph, model:LLNA, states:np.ndarray, return_next:bool=False) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
     """
     Returns the Jacobian matrix of partial Boolean derivatives. J[i,j] can be either 0 or 1,
     and answers the question 'is node i affected by a change in the state of node j in the previous time step?'
     If it is, J[i,j] is 1. Otherwise, J[i,j] is 0.
+
+    Parameters
+    ----------
+    graph : igraph.Graph
+        Network (graph) used as the topology for the automaton. Will be interpreted as a undirected graph.
+    model : src.automata.LLNA
+        Life-like network automaton (custom class). Envelops the rules that govern the automaton.
+    states : numpy.ndarray
+        Initial configuration of the LLNA.
+    return_next : bool
+        Defaults to False. If true, return the configuration in the graph on the next time step (evolved from states via model).
+
+    Returns
+    -------
+    J : numpy.ndarray
+        The Jacobian matrix of size N x N. If changing node j affect node i in the next time step, J[i,j]=1.
+    states_next : numpy.ndarray
+        The network automaton configuration at the next time step (evolved from 'states').
     """
     ### returns Jacobian matrix with dimensions N x N, where N is the number of nodes in the graph
     # number of nodes
@@ -28,6 +48,7 @@ def jacobian(graph:ig.Graph, model:LLNA, states:np.ndarray, return_next:bool=Fal
     states_all = np.tile(states, (N,1))
     # calculate unperturbed next-timestep state vector (N times in parallel)
     states_all_next = np.array(model.step(edges, tc.tensor(states_all)), dtype=int)
+    states_next = states_all_next[0]
 
     # make matrix with all possible single-defect perturbations
     states_defect_all = (np.tile(states, (N,1)) + np.diag(np.ones(N, dtype=int))) % 2
@@ -39,10 +60,14 @@ def jacobian(graph:ig.Graph, model:LLNA, states:np.ndarray, return_next:bool=Fal
 
     # return transpose (to match definition)
     if return_next:
-        return J.T, states_all_next[0]
+        return J.T, states_next
     return J.T
 
 def lyapunov_gamma(graph:ig.Graph, model:LLNA, states:np.ndarray, T:int) -> np.ndarray:
+    """
+    TODO: 'lyapunov_gamma' is not an ideal name.
+    Calculates 
+    """
     N = len(states)
 
     # get ID of edges (bidirectional)
