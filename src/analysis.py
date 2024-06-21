@@ -63,10 +63,30 @@ def jacobian(graph:ig.Graph, model:LLNA, states:np.ndarray, return_next:bool=Fal
         return J.T, states_next
     return J.T
 
-def lyapunov_gamma(graph:ig.Graph, model:LLNA, states:np.ndarray, T:int) -> np.ndarray:
+def defect_diameter(graph:ig.Graph, model:LLNA, states:np.ndarray, T:int, norm:bool=True) -> np.ndarray:
     """
-    TODO: 'lyapunov_gamma' is not an ideal name.
-    Calculates 
+    Calculates the configuration-space interpretation of the Lyapunov exponent after T time steps.
+    This is defined by the diameter of the subgraph of all affected nodes, divided by T.
+    The value is given for the perturbance of each of the nodes (in the order of the nodes in the graph object)
+
+    Parameters
+    ----------
+    graph : igraph.Graph
+        Network (graph) used as the topology for the automaton. Will be interpreted as a undirected graph.
+    model : src.automata.LLNA
+        Life-like network automaton (custom class). Envelops the rules that govern the automaton.
+    states : numpy.ndarray
+        Initial configuration of the LLNA.
+    T : int
+        The number of time steps over which the defect diameter is calculated and normalised
+    norm : bool
+        Defaults to True. If False, the defect diameters are not normalised (divided by T).
+
+    Returns
+    -------
+    diameters : numpy.ndarray
+        An array of length T with the defect diameters related to a defect in each of the N nodes.
+        If norm==False, the diameters are not normalised (divided by T).
     """
     N = len(states)
 
@@ -94,4 +114,7 @@ def lyapunov_gamma(graph:ig.Graph, model:LLNA, states:np.ndarray, T:int) -> np.n
         subG = G.subgraph(delta_nodes)
         diameter = subG.diameter()
         diameters += [diameter]
-    return np.array(diameters)
+    diameters = np.array(diameters)
+    if norm:
+        diameter /= T
+    return diameters
