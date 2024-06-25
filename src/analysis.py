@@ -111,10 +111,61 @@ def defect_diameter(graph:ig.Graph, model:LLNA, states:np.ndarray, T:int, norm:b
     diameters = []
     for delta_cum in deltas_cum[:,-1,:]:
         delta_nodes, = np.where(delta_cum)
-        subG = G.subgraph(delta_nodes)
+        subG = graph.subgraph(delta_nodes)
         diameter = subG.diameter()
         diameters += [diameter]
     diameters = np.array(diameters)
     if norm:
-        diameter /= T
+        diameters = diameters/(T+1)
     return diameters
+
+def calculate_Yt(graph:ig.Graph, model:LLNA, states:np.ndarray, T:int) -> np.ndarray:
+    """
+    Calculates the perturbation of the unit defect sphere Y0 in tangent space starting from the point in configuration space indicated by the states array, after T time steps. This is used to calculate the tangent-space interpretation of the Lyapunov exponent of a cellular automaton or network automaton.
+
+    Parameters
+    ----------
+    graph : igraph.Graph
+        Network (graph) with N nodes used as the topology for the automaton. Will be interpreted as a undirected graph.
+    model : src.automata.LLNA
+        Life-like network automaton (custom class). Envelops the rules that govern the automaton.
+    states : numpy.ndarray
+        Initial configuration (length N) of the LLNA.
+    T : int
+        The number of time steps over which the defect diameter is calculated and normalised
+
+    Returns
+    -------
+    Yt : numpy.ndarray
+        N x N matrix were each column represents the perturbation of an initial unit defect in tangent space.
+    """
+    N = len(states)
+    # start with unit sphere
+    Yt = np.diag(np.ones(N).astype(int))
+    # multiply subsequent Jacobians
+    for _ in range(T):
+        J, states = jacobian(graph, model, states, return_next=True)
+        Yt = np.matmul(J, Yt) # no mod 2!
+    return Yt
+
+def lyapunov_spectrum(Yt:np.ndarray, T:int) -> np.ndarray:
+    """
+    Calculates the Lyapunov spectrum in the tangent-space interpretation, by taking the natural logarithm of the eigenvalues of the unit sphere perturbations.
+
+    Parameters
+    ----------
+    Yt : numpy.ndarray
+        N x N matrix were each column represents the perturbation of an initial unit defect in tangent space.
+    T : int
+        The number of time steps over which the defect diameter is calculated and normalised
+
+    Returns
+    -------
+    lambdas : numpy.ndarray
+        Array of length N, containing the Lyapunov coefficient for an initial minimal defect in each of the N dimensions of the discrete dynamical system.
+    """
+    Gamma = np.matmul(Yt, Yt.T)
+    Lambdas_squared = np.linalg.eigvals(Gamma)
+    lambdas = np.log(Lambdas_squared)/(2*T)
+    return lambdas
+# %%
