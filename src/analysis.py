@@ -140,8 +140,8 @@ def calculate_Yt(graph:ig.Graph, model:LLNA, states:np.ndarray, T:int) -> np.nda
         N x N matrix were each column represents the perturbation of an initial unit defect in tangent space.
     """
     N = len(states)
-    # start with unit sphere
-    Yt = np.diag(np.ones(N).astype(int))
+    # start with unit sphere (with 64 bit precision to avoid numerical errors)
+    Yt = np.diag(np.ones(N, dtype=np.int64))
     # multiply subsequent Jacobians
     for _ in range(T):
         J, states = jacobian(graph, model, states, return_next=True)
@@ -165,7 +165,12 @@ def lyapunov_spectrum(Yt:np.ndarray, T:int) -> np.ndarray:
         Array of length N, containing the Lyapunov coefficient for an initial minimal defect in each of the N dimensions of the discrete dynamical system.
     """
     Gamma = np.matmul(Yt, Yt.T)
-    Lambdas_squared = np.linalg.eigvals(Gamma)
-    lambdas = np.log(Lambdas_squared)/(2*T)
+    # Symmetrize the matrix to ensure it's exactly symmetric (avoid numerical errors)
+    Gamma = (Gamma + Gamma.T) / 2
+    # use the eigh method (which is optimised for symmetric matrices)
+    # TODO: this function returns the eigenvalues in ascending order, i.e. it loses information on which node is affected!
+    Lambdas_squared = np.linalg.eigvalsh(Gamma)
+    # Eq. 13 in Vispoel et al (2024)
+    lambdas = np.log(Lambdas_squared)/T
     return lambdas
 # %%
