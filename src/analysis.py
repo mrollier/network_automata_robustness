@@ -167,10 +167,10 @@ def lyapunov_spectrum(Yt:np.ndarray, T:int) -> np.ndarray:
     Gamma = np.matmul(Yt, Yt.T)
     # Symmetrize the matrix to ensure it's exactly symmetric (avoid numerical errors)
     Gamma = (Gamma + Gamma.T) / 2
-    # use the eigh method (which is optimised for symmetric matrices)
+    # use the eigh method (which is optimised for symmetric matrices). Note that we only want positive eigenvalues.
     # TODO: this function returns the eigenvalues in ascending order, i.e. it loses information on which node is affected!
-    Lambdas_squared = np.linalg.eigvalsh(Gamma)
+    Lambdas_squared = np.abs(np.linalg.eigvalsh(Gamma))
     # Eq. 13 in Vispoel et al (2024)
-    lambdas = np.log(Lambdas_squared)/T
+    lambdas = np.log(Lambdas_squared)/(2*T)
     return lambdas
 # %%
