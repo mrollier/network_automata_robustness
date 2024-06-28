@@ -1,4 +1,6 @@
 # %% import packages
+import matplotlib.pyplot as plt
+import numpy as np
 
 # special packages
 import torch as tc
@@ -77,3 +79,83 @@ class LLNA(tc.nn.Module):
 			ht = self.step(E, ht.detach())
 			H.append(ht)
 		return tc.stack(H, 1)
+
+	def diagram(self, ax=None):
+		"""
+		Method to visualise the LLNA update rules in a diagram
+
+		Parameters
+		----------
+		ax : matplotlib.axes._axes.Axes
+			Axes object serves as target for diagram. Default is None (in which case this method creates its own Axes object)
+
+		Returns
+		-------
+		fig : matplotlib.figure.Figure
+			Figure object used to further enhance or customise the diagram
+		ax : matplotlib.axes._axes.Axes
+			Axes object used to further enhance or customise the diagram
+		"""
+		# make Axes object if required
+		if ax is None:
+			fig, ax = plt.subplots(1,1,figsize=(10,1.8))
+		# create the desired density subdomains
+		born_if = self.rule[0]; survive_if = self.rule[1]
+		subdoms = []; born = []; survive = []
+		for i in range(self._resolution):
+			subdoms += [i, i+1]
+			if i in born_if:
+				born += [1, 1]
+			else:
+				born += [0, 0]
+			if i in survive_if:
+				survive += [1, 1]
+			else:
+				survive += [0, 0]
+		subdoms = np.array(subdoms) / self._resolution
+		born = np.array(born)
+		survive = np.array(survive)
+
+		# diagram qualities
+		offset = 0.005
+		born_color = 'red'
+		survive_color = 'green'
+		# top curves
+		ax.plot(subdoms, born+offset, color=born_color)
+		ax.plot(subdoms, survive-offset, color=survive_color)
+		# hatches
+		ax.fill_between(subdoms, 0, born+offset, facecolor=born_color, alpha=.2, hatch='/', edgecolor=born_color, label='dead')
+		ax.fill_between(subdoms, 0, survive+offset, facecolor=survive_color, alpha=.2, hatch='\\', edgecolor=survive_color, label='alive')
+
+		# add markers for discontinuous points
+		# ax.scatter(subdoms[1], born[1], s=50, color='green')
+		# ax.scatter(subdoms[1], survive[1], s=50, color='red')
+
+		# add x tick information
+		xticks = np.arange(self._resolution*2+1)/(self._resolution*2)
+		xticklabels = [None]*len(xticks)
+		xticklabels[0] = 0
+		xticklabels[1] = f"$[0, 1/{self._resolution}[$"
+		xticklabels[-2] = f"$[{self._resolution-1}/{self._resolution}, 1]$"
+		xticklabels[-1] = 1
+		for i in range(3, (self._resolution-1)*2, 2):
+			xticklabels[i] = f"$[{i//2}/{self._resolution}, {i//2+1}/{self._resolution}[$"
+		ax.set_xticks(xticks)
+		ax.set_xticklabels(xticklabels)
+
+		# add y tick information
+		yticks = [0,1]
+		yticklabels = ["dead", "alive"]
+
+		ax.set_yticks(yticks)
+		ax.set_yticklabels(yticklabels, rotation=45)
+
+		ax.set_ylabel("Node becomes ...")
+		ax.set_xlabel(f"State density $\\rho$ of the node's neighbourhood")
+
+		ax.legend(title='Node was ...', ncol=2, loc='right')
+		ax.set_title(f"Diagram for LLNA {self.__str__()}")
+
+		# return
+		return fig, ax
+
