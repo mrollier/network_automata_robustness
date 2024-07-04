@@ -141,11 +141,11 @@ def calculate_Yt(graph:ig.Graph, model:LLNA, states:np.ndarray, T:int) -> np.nda
     """
     N = len(states)
     # start with unit sphere (with 64 bit precision to avoid numerical errors)
-    Yt = np.diag(np.ones(N, dtype=np.int64))
+    Yt = np.diag(np.ones(N, dtype=np.float64))
     # multiply subsequent Jacobians
     for _ in range(T):
         J, states = jacobian(graph, model, states, return_next=True)
-        Yt = np.matmul(J, Yt) # no mod 2!
+        Yt = np.matmul(J.astype(np.float64), Yt) # no mod 2!
     return Yt
 
 def lyapunov_spectrum(Yt:np.ndarray, T:int) -> np.ndarray:
