@@ -35,7 +35,7 @@ def stack_disturbs(E, h0):
 dataset = NetworksDataset(
 	path=INPUT_PATH, 
 	cached=False, 
-	directed=False, 
+	as_undirected=True, 
 	max_inits=MAX_INITS, 
 	transform=stack_disturbs, 
 	device=DEVICE
