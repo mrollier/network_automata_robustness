@@ -53,8 +53,8 @@ class GenericDataset(Dataset):
 
 
 class NetworksDataset(GenericDataset):
-	def __init__(self, directed:bool=True, max_inits:int=0, **kwargs):
-		self._directed = directed
+	def __init__(self, as_undirected:bool=True, max_inits:int=0, **kwargs):
+		self._as_undir = as_undirected
 		self._max_inits = max_inits
 		GenericDataset.__init__(self, **kwargs)
 	
@@ -63,9 +63,9 @@ class NetworksDataset(GenericDataset):
 			n_nodes, n_edges, n_inits = self._parse(f, ' ', int)
 			edges = tc.tensor(self._parse(f, ' ', int, n_edges))
 			states = tc.tensor(self._parse(f, ' ', int, n_inits))
-		if not self._directed:
+		if self._as_undir:
 			edges_dir = list( map(tuple, edges.numpy()) )
-			edges_rev = list( map(tuple, reversed(edges).numpy()) )
+			edges_rev = list( map(tuple, reversed(edges.T).numpy().T) )
 			edges = tc.tensor( sorted(set(edges_dir + edges_rev)) )
 		if self._max_inits > 0:
 			l = min(states.shape[0], self._max_inits)
