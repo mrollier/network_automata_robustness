@@ -36,6 +36,9 @@ for i, row in df_params.iterrows():
 		graph = ig.Graph.Barabasi(n=row['n'], m=row['m'], directed=False, power=1) # linear BA model
 	else:
 		raise
+	# the graph could be converted now to directed and then both eij and eji edges will be
+	# explicitly informed, but it will require twice the storage, so we opted to store the
+	# graph as undirected (only eij or eji will be listed in file, not both) and fix it later
 	qt_nodes = len(graph.vs)
 	qt_edges = len(graph.es)
 	
