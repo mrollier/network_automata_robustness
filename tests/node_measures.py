@@ -19,7 +19,7 @@ from src.simulation import join_path, all_rules_from
 # global parameters
 INPUT_PATH = join_path('..', 'data', 'teps')
 OUTPUT_PATH = join_path('..', 'data', 'calc')
-RESOLUTION = [2]
+RESOLUTION = eval(input('Desired resolution values (list): '))
 DEVICE = 'cpu'
 
 os.makedirs(OUTPUT_PATH, exist_ok=True)
@@ -46,7 +46,7 @@ for R in RESOLUTION:
 		)
 		# join calculated values by rule
 		results_df = []
-		for data in tqdm(dataset, desc=f'{rule_desc:16s}'):
+		for data in tqdm(dataset, desc=f'{rule_desc:16s}', ncols=80):
 			# data with shape [num_inits, num_scenarios, time_steps, num_nodes]
 			# (note that "num_scenarios" stands from the initial configuration + disturbs,
 			# which in this case has value of 1 + num_nodes)

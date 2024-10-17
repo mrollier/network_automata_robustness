@@ -24,6 +24,14 @@ def orth_disturbs(h:tc.Tensor, append:bool=True) -> tc.Tensor:
 	ha = [h] if append else [] # if 'append==True', adds 'h' as the first row
 	return tc.stack(ha + [ h ^ delta[i] for i in range(N) ], 0)
 
+def stack_disturbs(E:tc.Tensor, h0:tc.Tensor) -> tuple:
+	"""
+	transformation that for each initial configuration generates all possibles 
+	orthogonal disturbs and append them to the original initial configuration
+	"""
+	H0 = tc.stack([ orth_disturbs(h, True) for h in h0 ], 0)
+	return E, H0
+
 def prepare_shape(H:tc.Tensor) -> tc.Tensor:
 	"""
 	Given a tensor with dimensions (L, C, N), joins all dimensions except the last 

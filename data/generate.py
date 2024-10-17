@@ -5,6 +5,7 @@ import os
 import numpy as np
 import pandas as pd
 import igraph as ig
+from tqdm import tqdm
 
 # %% generate list of parameters
 GLOBAL_SEED = None
@@ -30,15 +31,15 @@ os.makedirs('graphs/', exist_ok=True)
 np.random.gauss = np.random.normal # for compatibility with igraph
 ig.set_random_number_generator(np.random)
 
-for i, row in df_params.iterrows():
+for i, row in tqdm(df_params.iterrows()):
 	np.random.seed(row['seed'])
 	if row['model'] == 'BA':
 		graph = ig.Graph.Barabasi(n=row['n'], m=row['m'], directed=False, power=1) # linear BA model
 	else:
 		raise
-	# the graph could be converted now to directed and then both eij and eji edges will be
-	# explicitly informed, but it will require twice the storage, so we opted to store the
-	# graph as undirected (only eij or eji will be listed in file, not both) and fix it later
+	# force the graph to be directed so both edges e_ij and e_ji will be writen in the file
+	# it will need more storage but will avoid problems when reading the graph later
+	graph = graph.as_directed()
 	qt_nodes = len(graph.vs)
 	qt_edges = len(graph.es)
 	
