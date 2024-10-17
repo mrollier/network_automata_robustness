@@ -20,22 +20,17 @@ from src.simulation import *
 # global parameters (be careful when changing numeric variables to higher values)
 INPUT_PATH = join_path('..', 'data', 'graphs')
 OUTPUT_PATH = join_path('..', 'data', 'teps')
-RESOLUTION = [2]
+RESOLUTION = eval(input('Desired resolution values (list): '))
 NUM_STEPS = 50
 MAX_INITS = 1
 DEVICE = 'cpu'
 
-# transformation that for each initial configuration generates all possibles 
-# orthogonal disturbs and append them to the original initial configuration 
-def stack_disturbs(E, h0):
-    H0 = tc.stack([ orth_disturbs(h, True) for h in h0 ], 0)
-    return E, H0
 
 # open the dataset (when 'cached=True', keeps all graphs in memory)
 dataset = NetworksDataset(
 	path=INPUT_PATH, 
 	cached=False, 
-	as_undirected=True, 
+	as_undirected=True, # redundant
 	max_inits=MAX_INITS, 
 	transform=stack_disturbs, 
 	device=DEVICE
@@ -47,7 +42,7 @@ for R in RESOLUTION:
 		automaton = LLNA(R, X, Y)
 		rule_desc = str(automaton)
 		temp_folder = join_path(OUTPUT_PATH, rule_desc)
-		pbar = tqdm(total=len(dataset), desc=f'{rule_desc:16s}', position=0, leave=True)
+		pbar = tqdm(total=len(dataset), desc=f'{rule_desc:16s}', ncols=80, position=0, leave=True)
 		
 		# calculate TEPs for all graphs in dataset, for all possible disturbs
 		for i, (E, h0) in enumerate(dataset):

@@ -53,7 +53,7 @@ class GenericDataset(Dataset):
 
 
 class NetworksDataset(GenericDataset):
-	def __init__(self, as_undirected:bool=True, max_inits:int=0, **kwargs):
+	def __init__(self, as_undirected:bool=False, max_inits:int=0, **kwargs):
 		self._as_undir = as_undirected
 		self._max_inits = max_inits
 		GenericDataset.__init__(self, **kwargs)
@@ -73,6 +73,14 @@ class NetworksDataset(GenericDataset):
 		edges = edges.T.to(self._device)
 		states = states.to(self._device)
 		return (edges, states) if self._transf is None else self._transf(edges, states)
+	
+	def is_directed(self):
+		for (edges, _) in self:
+			edge_list = set(map(tuple, edges.numpy().T))
+			for e in edge_list:
+				if tuple(reversed(e)) not in edge_list:
+					return True
+		return False
 
 
 
