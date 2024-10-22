@@ -89,7 +89,7 @@ class TEPsDataset(GenericDataset):
 		assert(rule is not None)
 		self._rule = rule
 		self._workspace = os.path.join(path, self._rule)
-		shutil.unpack_archive(self._workspace + '.zip', self._workspace, 'zip')
+		shutil.unpack_archive(self._workspace + '.xztar', self._workspace, 'xztar')
 		GenericDataset.__init__(self, path=self._workspace, **kwargs)
 		
 	def __del__(self):
