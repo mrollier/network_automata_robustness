@@ -4,7 +4,7 @@ Here we aim to characterize a family of Life-Like Network Automata (LLNA) in the
 
 The analysis is made by the means of the Lyapunov exponent (LE), which indicates if there is a convergence or exponential divergence in the close trajectories due some infinitesimal (in the discrete state space, unitary) disturb. Usually we only care about the maximal Lyapunov exponent (MLE), but there is a whole spectrum of LEs.
 
-<hr>
+<br>
 
 # RESEARCH DETAILS
 
@@ -21,14 +21,14 @@ The LLNA is a cellular automata adapted from the original Game of Life to run in
 
 ## Limitations of the Study
 
-- homogenous networks (only linear BA with 100 nodes and average degree $<k> = 4$);
+- homogenous networks (only linear BA with 100 nodes and average degree $k = 4$);
 - smallest family of LLNA ($R = 2$);
 
 
 ## Difficulties to Overcome
 
 - What are the definitions of LE for discrete state and time and how can we use them?
-- How to calculate the LE at $t \to \infty$ the after a finite (and rather small) amount of time the LE stops growing? Maybe analyze along a fixed amount of time, but to determine it?
+- How to calculate the LE at $t \to \infty$ if after a finite (and rather small) amount of time the LE stops growing? Maybe analyze along a fixed amount of time, but to determine it?
 - How does the MLE distribution changes with the increase in the LLNA resolution?
 - How is the LE spectrum related to node properties like degree, centrality...?
 
@@ -43,21 +43,21 @@ How the relative amount of contiguos enabled subintervals of born/survive transi
 
 It is reasonable to think that in case of a variation in neighborhood state density, the first rule configuration is less likely to be impacted as the second one. For the first case there is only one region (around $0.5$) where a disturb could change the outcome of the transition function, but for the later there are $R - 1$ discontinuities in the rule-part function that could cause changes in the outcome value.
 
-<hr>
+<br>
 
 # PROJECT STRUCTURE
 
-## Organization of the files
+## Organization of the Files
 
-<font color='red'>...</font>
+<font color="red">...</font>
 
 ## Experiment Pipeline
 
-<font color='red'>...</font>
+<font color="red">...</font>
 
 ## TO-DO List
 
-<font color='red'>...</font>
+<font color="red">...</font>
 
 
 
