@@ -18,10 +18,9 @@ class LLNA(tc.nn.Module):
 		self.callback = None
 	
 	def __str__(self):
-		#concat = lambda arr: reduce(lambda x,y: f'{x},{y}', map(str, arr), '')
-		concat = lambda arr: ','.join(list(map(str, arr)))
+		encode = lambda arr: sum(2**np.array(arr))
 		(x, y) = self.rule
-		return f'R={self._resolution}:B{concat(x)}_S{concat(y)}'
+		return f'R{self._resolution}B{encode(x)}S{encode(y)}'
 	
 	@property
 	def resolution(self):
