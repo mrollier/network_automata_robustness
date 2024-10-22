@@ -9,8 +9,6 @@ from tqdm import tqdm
 import torch as tc
 
 # custom
-import sys
-sys.path.insert(0, '..') # TODO: this is probably not the right way to do this
 from src.datasets import NetworksDataset
 from src.automata import LLNA
 from src.simulation import *
@@ -18,8 +16,8 @@ from src.simulation import *
 # %% generate time-evolution patterns and save at disk
 
 # global parameters (be careful when changing numeric variables to higher values)
-INPUT_PATH = join_path('..', 'data', 'graphs')
-OUTPUT_PATH = join_path('..', 'data', 'teps')
+INPUT_PATH = join_path('data', 'graphs')
+OUTPUT_PATH = join_path('data', 'teps')
 RESOLUTION = eval(input('Desired resolution values (list): '))
 NUM_STEPS = 50
 MAX_INITS = 1
@@ -63,7 +61,7 @@ for R in RESOLUTION:
 		pbar.close()
 		
 		# compress temporary folder into a zip file named after the automaton rule
-		shutil.make_archive(temp_folder, 'zip', temp_folder)
+		shutil.make_archive(temp_folder, 'xztar', temp_folder)
 		shutil.rmtree(temp_folder)
 
 # %% end
