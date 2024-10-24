@@ -17,7 +17,7 @@ class GenericDataset(Dataset):
 		self._cached = cached
 		self._device = device
 		self._transf = transform
-		self._samples = list(map(self._load, tqdm(self._files))) if self._cached else []
+		self._samples = list(map(self._load, tqdm(self._files, ncols=80))) if self._cached else []
 	
 	def _load(self, filename:str):
 		raise NotImplementedError
@@ -85,12 +85,12 @@ class NetworksDataset(GenericDataset):
 
 
 class TEPsDataset(GenericDataset):
-	def __init__(self, rule:str=None, path:str='.', **kwargs):
-		assert(rule is not None)
+	def __init__(self, rule:str=None, path:str='.', defect_freq:str=None, **kwargs):
+		assert (rule is not None) and (defect_freq in ['single', 'multi'])
 		self._rule = rule
 		self._workspace = os.path.join(path, self._rule)
-		shutil.unpack_archive(self._workspace + '.xztar', self._workspace, 'xztar')
-		GenericDataset.__init__(self, path=self._workspace, **kwargs)
+		shutil.unpack_archive(self._workspace + '.tar.xz', self._workspace, 'xztar')
+		GenericDataset.__init__(self, path=os.path.join(self._workspace, defect_freq), **kwargs)
 		
 	def __del__(self):
 		shutil.rmtree(self._workspace)
