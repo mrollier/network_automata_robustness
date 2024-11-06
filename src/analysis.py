@@ -70,10 +70,8 @@ def jacobian_ECA(rule:int, states:np.ndarray, return_next:bool) -> np.ndarray:
     """
     # number of nodes
     N = len(states)
-    # make matrix with N rows of the same state array
-    states_all = np.tile(states, (N,1))
     # calculate unperturbed next-timestep state vector
-    states_next = cpl.evolve(states[np.newaxis,:], timesteps=1, apply_rule=lambda n, c, t: cpl.nks_rule(n, rule))[-1]
+    states_next = cpl.evolve(states[np.newaxis,:], timesteps=2, apply_rule=lambda n, c, t: cpl.nks_rule(n, rule))[-1]
     states_all_next = np.tile(states_next, (N,1))
 
     # make matrix with all possible single-defect perturbations
@@ -81,7 +79,7 @@ def jacobian_ECA(rule:int, states:np.ndarray, return_next:bool) -> np.ndarray:
     # calculate perturbed next-timestep state vector (N times in parallel)
     states_defect_all_next = np.empty_like(states_defect_all)
     for tt, states_defect in enumerate(states_defect_all):
-        states_defect_next = cpl.evolve(states_defect[np.newaxis,:], timesteps=1, apply_rule=lambda n, c, t: cpl.nks_rule(n, rule))[-1]
+        states_defect_next = cpl.evolve(states_defect[np.newaxis,:], timesteps=2, apply_rule=lambda n, c, t: cpl.nks_rule(n, rule))[-1]
         states_defect_all_next[tt] = states_defect_next
 
     # compile Jacobian with XOR operator (the Boolean derivative)
