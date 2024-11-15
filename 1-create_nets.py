@@ -5,6 +5,7 @@ import os
 import numpy as np
 import pandas as pd
 import igraph as ig
+import itertools as itt
 from tqdm import tqdm
 
 # extra module
@@ -12,18 +13,17 @@ import sys
 sys.path.insert(0, 'src/network_analysis/lib') 
 from containers import GraphAPI
 from analytics import DataPool
-from characterization import Distances, Connectivity, ClusteringAndCycles, Centrality
+from characterization import Distances, Connectivity, ClusteringAndCycles, Centrality, EntropyAndEnergy
 
 # %% generate list of parameters
 GLOBAL_SEED = None
 GRAPH_PARAMS = {
     'BA': [
-        {'n': 100, 'm': 2},
-        {'n': 100, 'm': 3},
-        {'n': 100, 'm': 4},
+        {'n': n, 'm': m, 'power': 1} 
+        for (n, m) in itt.product([50, 100, 250], [1, 2, 3, 4]) 
     ]
 }
-SAMPLING = 50
+SAMPLING = 20
 INITS_PER_GRAPH = 5
 
 # %% configure random number generator
@@ -62,7 +62,9 @@ datapool.update(m=Distances.as_dataframe())
 datapool.update(m=Connectivity.as_dataframe())
 datapool.update(m=ClusteringAndCycles.as_dataframe())
 datapool.update(m=Centrality.as_dataframe())
-datapool.update(r=datapool.evaluate(log_info=True))
+datapool.update(m=EntropyAndEnergy.as_dataframe())
+m_mask = (datapool.measures['name'] != 'shortest distances')
+datapool.update(r=datapool.evaluate(measure_subset=m_mask, log_info=True))
 datapool.save('data/info', n=True, m=True, r=True)
 
 # %% create output folder if not exists yet
