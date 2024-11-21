@@ -17,9 +17,11 @@ class LLNA(tc.nn.Module):
 		self.rule = (x, y)
 		self.callback = None
 	
-	def __str__(self):
+	def __str__(self, latex=False):
 		encode = lambda arr: sum(2**np.array(arr))
 		(x, y) = self.rule
+		if latex:
+			return f'$R_{{{self._resolution}}}B_{{{encode(x)}}}S_{{{encode(y)}}}$'
 		return f'R{self._resolution}B{encode(x)}S{encode(y)}'
 	
 	@property
@@ -97,7 +99,9 @@ class LLNA(tc.nn.Module):
 			Axes object used to further enhance or customise the diagram
 		"""
 		# make Axes object if required
+		return_both=False
 		if ax is None:
+			return_both=True
 			fig, ax = plt.subplots(1,1,figsize=(10,1.8))
 		# create the desired density subdomains
 		born_if = self.rule[0]; survive_if = self.rule[1]
@@ -154,8 +158,9 @@ class LLNA(tc.nn.Module):
 		ax.set_xlabel(f"State density $\\rho$ of the node's neighbourhood")
 
 		ax.legend(title='Node was ...', ncol=2, loc='right')
-		ax.set_title(f"Diagram for LLNA {self.__str__()}")
+		ax.set_title(f"Diagram for LLNA {self.__str__(latex=True)}")
 
 		# return
-		return fig, ax
-
+		if return_both:
+			return fig, ax
+		return ax
