@@ -67,7 +67,7 @@ class NetworksDataset(GenericDataset):
 			edges_dir = list( map(tuple, edges.numpy()) )
 			edges_rev = list( map(tuple, reversed(edges.T).numpy().T) )
 			edges = tc.tensor( sorted(set(edges_dir + edges_rev)) )
-		if self._max_inits > 0:
+		if self._max_inits is not None and self._max_inits > 0:
 			l = min(states.shape[0], self._max_inits)
 			states = states[:l]
 		edges = edges.T.to(self._device)
@@ -90,6 +90,7 @@ class TEPsDataset(GenericDataset):
 		self._rule = rule
 		self._workspace = os.path.join(path, self._rule)
 		shutil.unpack_archive(self._workspace + '.tar.xz', self._workspace, 'xztar')
+		#shutil.unpack_archive(self._workspace + '.zip', self._workspace, 'zip')
 		GenericDataset.__init__(self, path=os.path.join(self._workspace, defect_freq), **kwargs)
 		
 	def __del__(self):
