@@ -1,0 +1,3 @@
+[submodule "src/network_analysis"]
+	path = src/network_analysis
+	url = https://github.com/lcaldeira/network_analysis.git
