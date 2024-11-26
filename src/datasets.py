@@ -89,12 +89,16 @@ class TEPsDataset(GenericDataset):
 		assert (rule is not None) and (defect_freq in ['single', 'multi'])
 		self._rule = rule
 		self._workspace = os.path.join(path, self._rule)
-		shutil.unpack_archive(self._workspace + '.tar.xz', self._workspace, 'xztar')
-		#shutil.unpack_archive(self._workspace + '.zip', self._workspace, 'zip')
+		items = list(map(lambda item: item.name, os.scandir(path)))
+		self._is_uncompressed = (rule in items)
+		if not self._is_uncompressed:
+			shutil.unpack_archive(self._workspace + '.tar.xz', self._workspace, 'xztar')
+			#shutil.unpack_archive(self._workspace + '.zip', self._workspace, 'zip')
 		GenericDataset.__init__(self, path=os.path.join(self._workspace, defect_freq), **kwargs)
 		
 	def __del__(self):
-		shutil.rmtree(self._workspace)
+		if not self._is_uncompressed:
+			shutil.rmtree(self._workspace)
 		
 	def _load(self, filename:str):
 		with open(filename, 'rb') as f:
