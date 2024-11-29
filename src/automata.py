@@ -47,17 +47,17 @@ class LLNA(tc.nn.Module):
 		self._x = encode(x) if x is not None else tc.randint(0, 2, shape).float()
 		self._y = encode(y) if y is not None else tc.randint(0, 2, shape).float()
 	
-	def interval_encoding(self, p:tc.Tensor, iso:bool=False):
-		if not iso: # classic psuedo-isomorphic case
+	def interval_encoding(self, p:tc.Tensor):
+		if not self._iso: # classic psuedo-isomorphic case
 			belongs_to  = lambda x, k: ((k <= self._resolution*x) & (self._resolution*x < k+1))
 			is_boundary = lambda x, k: ((k == self._resolution-1) & (x == 1))
 			return tc.stack([ 
 				(belongs_to(p, k) | is_boundary(p, k)).float() for k in range(self._resolution)
 			], 2)
-		else: # altered isomorphic case # TODO: something is wrong here!
-			belongs_to_lower = lambda x, k: ((k < (self._resolution-1)/2) & (x >= k/self._resolution) & (x < (k+1)/self._resolution))
-			belongs_to_middle = lambda x, k: (((k == (self._resolution-1)/2) | (k == (self._resolution+1)/2)) & (x >= k/self._resolution) & (x <= (k+1)/self._resolution))
-			belongs_to_upper = lambda x, k: ((k > (self._resolution+1)/2) & (x > k/self._resolution) & (x <= (k+1)/self._resolution))
+		else: # altered isomorphic case
+			belongs_to_lower = lambda x, k: ((k < self._resolution/2) & (x >= k/self._resolution) & (x < (k+1)/self._resolution))
+			belongs_to_middle = lambda x, k: ((k == (self._resolution-1)/2)  & (x >= k/self._resolution) & (x <= (k+1)/self._resolution))
+			belongs_to_upper = lambda x, k: ((k > self._resolution/2) & (x > k/self._resolution) & (x <= (k+1)/self._resolution))
 			return tc.stack([ 
 				(belongs_to_lower(p,k) | belongs_to_middle(p,k) | belongs_to_upper(p,k)).float() for k in range(self._resolution)
 			], 2)
@@ -65,7 +65,7 @@ class LLNA(tc.nn.Module):
 	def step(self, E:tc.Tensor, h:tc.Tensor):
 		h = tc.atleast_2d(h)
 		p = self.conv_gnn(h.T, E).T
-		R = self.interval_encoding(p, iso=self._iso)
+		R = self.interval_encoding(p)
 		b = tc.matmul(R, self._x).squeeze(2) * (1-h)
 		s = tc.matmul(R, self._y).squeeze(2) * h
 		if self.callback is not None:
