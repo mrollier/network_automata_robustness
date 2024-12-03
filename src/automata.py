@@ -10,16 +10,21 @@ from functools import reduce
 # %% define class
 
 class LLNA(tc.nn.Module):
-	def __init__(self, resolution:int, x:list=None, y:list=None):
+	def __init__(self, resolution:int, x:list=None, y:list=None, iso:bool=False):
 		super(LLNA, self).__init__()
 		self.conv_gnn = tg.nn.conv.SimpleConv(aggr='mean', combine_root=None)
+		if iso and not self._is_odd_integer(resolution):
+			raise ValueError(f"The resolution {resolution} is not an odd integer.")
+		self._iso = iso
 		self._resolution = resolution
 		self.rule = (x, y)
 		self.callback = None
 	
-	def __str__(self):
+	def __str__(self, latex=False):
 		encode = lambda arr: sum(2**np.array(arr))
 		(x, y) = self.rule
+		if latex:
+			return f'$R_{{{self._resolution}}}B_{{{encode(x)}}}S_{{{encode(y)}}}$'
 		return f'R{self._resolution}B{encode(x)}S{encode(y)}'
 	
 	@property
@@ -43,11 +48,19 @@ class LLNA(tc.nn.Module):
 		self._y = encode(y) if y is not None else tc.randint(0, 2, shape).float()
 	
 	def interval_encoding(self, p:tc.Tensor):
-		belongs_to  = lambda x, k: ((k <= self._resolution*x) & (self._resolution*x < k+1))
-		is_boundary = lambda x, k: ((k == self._resolution-1) & (x == 1))
-		return tc.stack([ 
-			(belongs_to(p, k) | is_boundary(p, k)).float() for k in range(self._resolution)
-		], 2)
+		if not self._iso: # classic psuedo-isomorphic case
+			belongs_to  = lambda x, k: ((k <= self._resolution*x) & (self._resolution*x < k+1))
+			is_boundary = lambda x, k: ((k == self._resolution-1) & (x == 1))
+			return tc.stack([ 
+				(belongs_to(p, k) | is_boundary(p, k)).float() for k in range(self._resolution)
+			], 2)
+		else: # altered isomorphic case
+			belongs_to_lower = lambda x, k: ((k < self._resolution/2) & (x >= k/self._resolution) & (x < (k+1)/self._resolution))
+			belongs_to_middle = lambda x, k: ((k == (self._resolution-1)/2)  & (x >= k/self._resolution) & (x <= (k+1)/self._resolution))
+			belongs_to_upper = lambda x, k: ((k > self._resolution/2) & (x > k/self._resolution) & (x <= (k+1)/self._resolution))
+			return tc.stack([ 
+				(belongs_to_lower(p,k) | belongs_to_middle(p,k) | belongs_to_upper(p,k)).float() for k in range(self._resolution)
+			], 2)
 	
 	def step(self, E:tc.Tensor, h:tc.Tensor):
 		h = tc.atleast_2d(h)
@@ -97,7 +110,9 @@ class LLNA(tc.nn.Module):
 			Axes object used to further enhance or customise the diagram
 		"""
 		# make Axes object if required
+		return_both=False
 		if ax is None:
+			return_both=True
 			fig, ax = plt.subplots(1,1,figsize=(10,1.8))
 		# create the desired density subdomains
 		born_if = self.rule[0]; survive_if = self.rule[1]
@@ -118,8 +133,8 @@ class LLNA(tc.nn.Module):
 
 		# diagram qualities
 		offset = 0.005
-		born_color = 'red'
-		survive_color = 'green'
+		born_color = 'green'
+		survive_color = 'dodgerblue'
 		# top curves
 		ax.plot(subdoms, born+offset, color=born_color)
 		ax.plot(subdoms, survive-offset, color=survive_color)
@@ -136,10 +151,24 @@ class LLNA(tc.nn.Module):
 		xticklabels = [None]*len(xticks)
 		xticklabels[0] = 0
 		xticklabels[1] = f"$[0, 1/{self._resolution}[$"
-		xticklabels[-2] = f"$[{self._resolution-1}/{self._resolution}, 1]$"
+		# classic pseudo-isomorphic case
+		if not self._iso:
+			xticklabels[-2] = f"$[{self._resolution-1}/{self._resolution}, 1]$"
+		# isomorphic case
+		else:
+			xticklabels[-2] = f"$]{self._resolution-1}/{self._resolution}, 1]$"
 		xticklabels[-1] = 1
-		for i in range(3, (self._resolution-1)*2, 2):
-			xticklabels[i] = f"$[{i//2}/{self._resolution}, {i//2+1}/{self._resolution}[$"
+		# classic pseudo-isomorphic case
+		if not self._iso:
+			for i in range(3, (self._resolution-1)*2, 2):
+				xticklabels[i] = f"$[{i//2}/{self._resolution}, {i//2+1}/{self._resolution}[$"
+		# isomorphic case
+		else:
+			for i in range(3, self._resolution, 2): # lhs
+				xticklabels[i] = f"$[{i//2}/{self._resolution}, {i//2+1}/{self._resolution}[$"
+			xticklabels[self._resolution] = f"$[{(self._resolution-1)//2}/{self._resolution}, {(self._resolution+1)//2}/{self._resolution}]$" # middle
+			for i in range(self._resolution+2, (self._resolution-1)*2, 2): # rhs
+				xticklabels[i] = f"$]{i//2}/{self._resolution}, {i//2+1}/{self._resolution}]$"
 		ax.set_xticks(xticks)
 		ax.set_xticklabels(xticklabels)
 
@@ -154,8 +183,14 @@ class LLNA(tc.nn.Module):
 		ax.set_xlabel(f"State density $\\rho$ of the node's neighbourhood")
 
 		ax.legend(title='Node was ...', ncol=2, loc='right')
-		ax.set_title(f"Diagram for LLNA {self.__str__()}")
+		ax.set_title(f"Diagram for LLNA {self.__str__(latex=True)}")
 
 		# return
-		return fig, ax
-
+		if return_both:
+			return fig, ax
+		return ax
+	
+	@staticmethod
+	def _is_odd_integer(res):
+		"""Check if the resolution is an odd integer. This is required when the LLNA must have automorphisms."""
+		return isinstance(res, int) and res % 2 == 1
