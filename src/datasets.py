@@ -17,7 +17,7 @@ class GenericDataset(Dataset):
 		self._cached = cached
 		self._device = device
 		self._transf = transform
-		self._samples = list(map(self._load, tqdm(self._files))) if self._cached else []
+		self._samples = list(map(self._load, tqdm(self._files, ncols=80))) if self._cached else []
 	
 	def _load(self, filename:str):
 		raise NotImplementedError
@@ -67,7 +67,7 @@ class NetworksDataset(GenericDataset):
 			edges_dir = list( map(tuple, edges.numpy()) )
 			edges_rev = list( map(tuple, reversed(edges.T).numpy().T) )
 			edges = tc.tensor( sorted(set(edges_dir + edges_rev)) )
-		if self._max_inits > 0:
+		if self._max_inits is not None and self._max_inits > 0:
 			l = min(states.shape[0], self._max_inits)
 			states = states[:l]
 		edges = edges.T.to(self._device)
@@ -85,15 +85,20 @@ class NetworksDataset(GenericDataset):
 
 
 class TEPsDataset(GenericDataset):
-	def __init__(self, rule:str=None, path:str='.', **kwargs):
-		assert(rule is not None)
+	def __init__(self, rule:str=None, path:str='.', defect_freq:str=None, **kwargs):
+		assert (rule is not None) and (defect_freq in ['single', 'multi'])
 		self._rule = rule
 		self._workspace = os.path.join(path, self._rule)
-		shutil.unpack_archive(self._workspace + '.zip', self._workspace, 'zip')
-		GenericDataset.__init__(self, path=self._workspace, **kwargs)
+		items = list(map(lambda item: item.name, os.scandir(path)))
+		self._is_uncompressed = (rule in items)
+		if not self._is_uncompressed:
+			shutil.unpack_archive(self._workspace + '.tar.xz', self._workspace, 'xztar')
+			#shutil.unpack_archive(self._workspace + '.zip', self._workspace, 'zip')
+		GenericDataset.__init__(self, path=os.path.join(self._workspace, defect_freq), **kwargs)
 		
 	def __del__(self):
-		shutil.rmtree(self._workspace)
+		if not self._is_uncompressed:
+			shutil.rmtree(self._workspace)
 		
 	def _load(self, filename:str):
 		with open(filename, 'rb') as f:

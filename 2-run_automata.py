@@ -20,7 +20,7 @@ INPUT_PATH = join_path('data', 'graphs')
 OUTPUT_PATH = join_path('data', 'teps')
 RESOLUTION = eval(input('Desired resolution values (list): '))
 NUM_STEPS = 50
-MAX_INITS = 1
+MAX_INITS = None
 DEVICE = 'cpu'
 
 
@@ -36,6 +36,7 @@ dataset = NetworksDataset(
 
 # create LLNA for all possible rules with same resolution from the resolution list
 for R in RESOLUTION:
+	print()
 	for X,Y in all_rules_from(R, 2):
 		automaton = LLNA(R, X, Y)
 		rule_desc = str(automaton)
@@ -61,7 +62,7 @@ for R in RESOLUTION:
 		
 		# calculate TEPs for all graphs in dataset, for all possible disturbs
 		# ocurred at each time step from the original trajetory
-		temp_folder = join_path(OUTPUT_PATH, rule_desc, 'multi')
+		"""temp_folder = join_path(OUTPUT_PATH, rule_desc, 'multi')
 		for i, (E, h0) in enumerate(dataset):
 			Ht = [h0]
 			for _ in range(NUM_STEPS):
@@ -77,12 +78,13 @@ for R in RESOLUTION:
 			# save TEPs in temporary folder
 			file_name = os.path.basename(dataset.filenames[i]).split('.')[0]
 			save_tensor(temp_folder, file_name, Ht, verbose=False)
-			pbar.update()
+			pbar.update()"""
 		    
-		# compress temporary folder into a zip file named after the automaton rule
+		# compress temporary folder into a compressed file named after the automaton rule
 		pbar.close()
 		temp_folder = join_path(OUTPUT_PATH, rule_desc)
 		shutil.make_archive(temp_folder, 'xztar', temp_folder)
+		#shutil.make_archive(temp_folder, 'zip', temp_folder)
 		shutil.rmtree(temp_folder)
 
 # %% end
