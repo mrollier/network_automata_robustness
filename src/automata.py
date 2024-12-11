@@ -66,7 +66,9 @@ class LLNA(tc.nn.Module):
 		h = tc.atleast_2d(h)
 		p = self.conv_gnn(h.T, E).T
 		R = self.interval_encoding(p)
+		# born
 		b = tc.matmul(R, self._x).squeeze(2) * (1-h)
+		# survive
 		s = tc.matmul(R, self._y).squeeze(2) * h
 		if self.callback is not None:
 			self.callback({ 'E':E, 'h':h, 'p':p, 'R':R, 'b':b, 's':s })
