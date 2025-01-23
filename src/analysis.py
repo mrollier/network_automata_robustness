@@ -177,7 +177,7 @@ def calculate_Yt(graph:ig.Graph, model:LLNA, states:np.ndarray, T:int) -> np.nda
 
 def lyapunov_spectrum(Yt:np.ndarray, T:int) -> np.ndarray:
     """
-    Calculates the Lyapunov spectrum in the tangent-space interpretation, by taking the natural logarithm of the singular values of the unit-perturbation sphere.
+    Calculates the Lyapunov spectrum in the tangent-space interpretation, by taking the natural logarithm of the singular values of the evolved unit-perturbation sphere.
 
     Parameters
     ----------
