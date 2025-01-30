@@ -196,10 +196,77 @@ def lyapunov_spectrum(Yt:np.ndarray, T:int) -> np.ndarray:
     # Gamma = (Gamma + Gamma.T) / 2
     # # use the eigh method (which is optimised for symmetric matrices). Note that we only want positive eigenvalues.
     # # TODO: this function returns the eigenvalues in ascending order, i.e. it loses information on which node is affected!
+    # # TODO: this function probably encounters numerical issues!
     # Lambdas_squared = np.abs(np.linalg.eigvalsh(Gamma))
     # # Eq. 13 in Vispoel et al (2024)
     # lambdas = np.log(Lambdas_squared)/(2*T)
     singulars = np.linalg.svd(Yt, compute_uv=False)
     lambdas = np.log(singulars)/T
     return lambdas
+
+def eca_as_binary(eca:int):
+    """
+    Returns the ECA as a binary number consisting of exactly 8 digits.
+    """
+    # check value of ECA
+    if not _is_eca(eca):
+        raise Exception(f"The integer {eca} is not a valid ECA.")
+    # body
+    eca_binary = np.base_repr(eca, base=2)
+    eca_binary = '0'*(8-len(eca_binary)) + eca_binary
+    return eca_binary
+
+def lr_symmetric_eca(eca:int):
+    """
+    Calculates the ECA that is left-right symmetric to the ECA in the argument
+
+    Parameters
+    ----------
+    eca : int
+        A Wolfram rule, i.e. a natural number smaller than 256.
+    
+    Returns
+    -------
+    lr_eca : int
+        Another Wolfram rule, that is left-right symmetric to the one in the argument
+    """
+    # check value of ECA
+    if not _is_eca(eca):
+        raise Exception(f"The integer {eca} is not a valid ECA.")
+    # body
+    eca_bin = eca_as_binary(eca)
+    lr_eca_bin = eca_bin[0] + eca_bin[4] + eca_bin[2] + eca_bin[6] + eca_bin[1] + eca_bin[5] + eca_bin[3] + eca_bin[7]
+    lr_eca = int(lr_eca_bin, base=2)
+    return lr_eca
+
+def bw_symmetric_eca(eca:int):
+    """
+    Calculates the ECA that is black-white symmetric to the ECA in the argument
+
+    Parameters
+    ----------
+    eca : int
+        A Wolfram rule, i.e. a natural number smaller than 256.
+    
+    Returns
+    -------
+    lr_eca : int
+        Another Wolfram rule, that is left-right symmetric to the one in the argument
+    """
+    # check value of ECA
+    if not _is_eca(eca):
+        raise Exception(f"The integer {eca} is not a valid ECA.")
+    # body
+    eca_bin = eca_as_binary(eca)
+    inv_eca_bin = eca_bin[::-1]
+    bw_eca = 255 - int(inv_eca_bin, base=2)
+    return bw_eca
+
+def _is_eca(eca:int):
+    # Check whether eca is a valid integer in [0, 255]
+    if eca < 0:
+        return False
+    if eca > 255:
+        return False
+    return True
 # %%
