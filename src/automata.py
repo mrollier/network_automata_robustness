@@ -66,7 +66,9 @@ class LLNA(tc.nn.Module):
 		h = tc.atleast_2d(h)
 		p = self.conv_gnn(h.T, E).T
 		R = self.interval_encoding(p)
+		# born
 		b = tc.matmul(R, self._x).squeeze(2) * (1-h)
+		# survive
 		s = tc.matmul(R, self._y).squeeze(2) * h
 		if self.callback is not None:
 			self.callback({ 'E':E, 'h':h, 'p':p, 'R':R, 'b':b, 's':s })
@@ -139,8 +141,8 @@ class LLNA(tc.nn.Module):
 		ax.plot(subdoms, born+offset, color=born_color)
 		ax.plot(subdoms, survive-offset, color=survive_color)
 		# hatches
-		ax.fill_between(subdoms, 0, born+offset, facecolor=born_color, alpha=.2, hatch='/', edgecolor=born_color, label='dead')
-		ax.fill_between(subdoms, 0, survive+offset, facecolor=survive_color, alpha=.2, hatch='\\', edgecolor=survive_color, label='alive')
+		ax.fill_between(subdoms, 0, born+offset, facecolor=born_color, alpha=.2, hatch='//', edgecolor=born_color, label='dead')
+		ax.fill_between(subdoms, 0, survive+offset, facecolor=survive_color, alpha=.2, hatch='\\\\', edgecolor=survive_color, label='alive')
 
 		# add markers for discontinuous points
 		# ax.scatter(subdoms[1], born[1], s=50, color='green')
