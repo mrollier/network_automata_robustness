@@ -202,6 +202,7 @@ dependencies:
   - zlib=1.2.13=hcfcfb64_5
   - zstd=1.5.5=hd43e919_0
   - pip:
+      - cellpylib
       - contourpy==1.2.1
       - cycler==0.12.1
       - fonttools==4.51.0
