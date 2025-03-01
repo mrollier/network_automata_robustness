@@ -95,7 +95,7 @@ class LLNA(tc.nn.Module):
 			H.append(ht)
 		return tc.stack(H, 1)
 
-	def diagram(self, ax=None):
+	def diagram(self, ax=None, degree:int=0):
 		"""
 		Method to visualise the LLNA update rules in a diagram
 
@@ -103,6 +103,8 @@ class LLNA(tc.nn.Module):
 		----------
 		ax : matplotlib.axes._axes.Axes
 			Axes object serves as target for diagram. Default is None (in which case this method creates its own Axes object)
+		degree : int
+			If not zero, plot the number of possible densities that may arise for a particular degree.
 
 		Returns
 		-------
@@ -111,6 +113,9 @@ class LLNA(tc.nn.Module):
 		ax : matplotlib.axes._axes.Axes
 			Axes object used to further enhance or customise the diagram
 		"""
+		# raise exception if degree does not make sense
+		if degree < 0:
+			raise Exception(f"Degree d={d} is not allowed. Choose 0 or a positive integer.")
 		# make Axes object if required
 		return_both=False
 		if ax is None:
@@ -187,6 +192,11 @@ class LLNA(tc.nn.Module):
 		ax.legend(title='Node was ...', ncol=2, loc='right')
 		ax.set_title(f"Diagram for LLNA {self.__str__(latex=True)}")
 
+		# add possible densities, if required
+		if degree:
+			rhos = np.linspace(0, 1, degree+1)
+			for rho in rhos:
+				ax.axvline(rho, color='k', ls='--')
 		# return
 		if return_both:
 			return fig, ax
