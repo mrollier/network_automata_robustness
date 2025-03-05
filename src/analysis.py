@@ -181,6 +181,8 @@ def hamming_weight(resolution:int, B_set:list, S_set:list, degree:int, norm:bool
         raise Exception(f"Degree {degree} not allowed. The degree must be a non-zero natural number smaller than 1023.")
     if iso and resolution % 2 == 0:
         raise Exception(f"Resolution {resolution} is not possible when iso=True. Choose an odd positive integer.")
+    if (B_set and (np.max(B_set) >= resolution)) or (S_set and (np.max(S_set) >= resolution)):
+        raise Exception(f"Resolution {resolution} is to small for the provided update intervals.")
     # all possible densities for this degree
     rhos = np.linspace(0, 1, degree+1)
     # the number of configurations that correspond to this density
@@ -296,6 +298,8 @@ def boolean_sens(resolution:int, B_set:list, S_set:list, degree:int, norm_degree
         raise Exception(f"Degree {degree} not allowed. The degree must be a non-zero natural number smaller than 1023.")
     if iso and resolution % 2 == 0:
         raise Exception(f"Resolution {resolution} is not possible when iso=True. Choose an odd positive integer.")
+    if (B_set and (np.max(B_set) >= resolution)) or (S_set and (np.max(S_set) >= resolution)):
+        raise Exception(f"Resolution {resolution} is to small for the provided update intervals.")
     # identity sensitivity
     def _id_sens(resolution, B_set, S_set, degree, iso=True):
         """
