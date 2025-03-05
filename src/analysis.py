@@ -5,6 +5,7 @@ import numpy as np
 import torch as tc
 import igraph as ig
 from typing import Union, Tuple
+from scipy.special import comb
 
 # warnings and exceptions
 import warnings
@@ -149,19 +150,76 @@ def defect_diameter(graph:ig.Graph, model:LLNA, states:np.ndarray, T:int, norm:b
         diameters = diameters/(T+1)
     return diameters
 
-def nbh_sensitivity(resolution: int, B_set:list, S_set:list) -> float:
+def hamming_weight(resolution:int, B_set:list, S_set:list, degree:int, norm:bool=True, iso=True):
     """
-    Returns a value between 0 and 1, indicating how sensitive the output of this LLNA is to slightly changing the neighbourhood density.
+    Calculate the (normalised) Hamming weight of the local update rule for a particular node degree. There is no need for a LLNA object (so the calculation is generally faster).
+    NOTE: this defaults to iso=True right now.
+
+    Parameters
+    ----------
+    resolution : int
+        Positive integer indicating the resolution of the local update rule
+    B_set : list
+        list of integers corresponding to the indices of the activated density intervals in the B set
+    S_set : list
+        list of integers corresponding to the indices of the activated density intervals in the B set
+    degree : int
+        The degree of the node you want to calculate the Hamming weight for
+    norm : bool
+        True by default. Maps the Hamming weight to a value from 0 to 1.
+    iso : bool
+        True by default. Set to False if non-isomorphic density intervals are used in the LLNA definition.
+
+    Returns
+    -------
+    HW : float or int
+        The (normalised) Hamming weight
+    """
+    # NOTE: so far this is limited to degree 1022
+    # this is identical to the Langton parameter!
+    if (degree < 1) or (degree > 1022):
+        raise Exception(f"Degree {degree} not allowed. The degree must be a non-zero natural number smaller than 1023.")
+    if iso and resolution % 2 == 0:
+        raise Exception(f"Resolution {resolution} is not possible when iso=True. Choose an odd positive integer.")
+    # all possible densities for this degree
+    rhos = np.linspace(0, 1, degree+1)
+    # the number of configurations that correspond to this density
+    configs_per_rho = np.array([comb(degree, k, exact=False) for k in range(degree + 1)])
+    # make sure this sums to 2**(degree)
+    expected_sum = 2**degree
+    configs_per_rho *= expected_sum / np.sum(configs_per_rho)
+    # make truthtable for resp. dead and living central nodes
+    rho_intervals = _interval_encoding(resolution, rhos[np.newaxis,:], iso=True)[0].argmax(axis=1)
+    born_truthtable = np.array([(rho in B_set) for rho in rho_intervals])
+    survive_truthtable = np.array([(rho in S_set) for rho in rho_intervals])
+    # weighted sum of all truthtable outputs
+    born_tt_sum = np.sum(configs_per_rho * born_truthtable)
+    survive_tt_sum = np.sum(configs_per_rho * survive_truthtable)
+    # born and survive set are both make up the total truth table
+    HW = born_tt_sum + survive_tt_sum
+    if norm:
+        tt_size = 2**(degree+1)
+        HW_norm = HW / tt_size
+        return HW_norm
+    return int(HW)
+
+def nbh_sensitivity_naive(resolution: int, B_set:list, S_set:list) -> float:
+    """
+    Returns a value between 0 and 1, indicating how sensitive the output of this LLNA is to slightly changing the neighbourhood density. This function does not require an LLNA object, which makes the calculation much faster.
     NOTE: this is a naive definition that does not take into account the degree distribution and the state density distribution.
 
     Parameters
     ----------
-    model : src.automata.LLNA
-        Life-like network automaton (custom class). Envelops the rules that govern the automaton.
+    resolution : int
+        Positive integer indicating the resolution of the local update rule
+    B_set : list
+        list of integers corresponding to the indices of the activated density intervals in the B set
+    S_set : list
+        list of integers corresponding to the indices of the activated density intervals in the B set
 
     Returns
     -------
-    nbh_sens : float
+    nbh_sens_naive : float
         Value ranging from 0 to 1, indicating low resp. high sensitivity.
     """
     B_set = np.array(B_set)
@@ -175,22 +233,26 @@ def nbh_sensitivity(resolution: int, B_set:list, S_set:list) -> float:
     borders_B = np.logical_xor(B_set_bin[1:], B_set_bin[:-1]).sum()
     borders_S = np.logical_xor(S_set_bin[1:], S_set_bin[:-1]).sum()
     # return total number of edges
-    nbh_sens = (borders_B + borders_S)/(resolution-1)/2
-    return nbh_sens
+    nbh_sens_naive = (borders_B + borders_S)/(resolution-1)/2
+    return nbh_sens_naive
 
-def id_sensitivity(resolution: int, B_set:list, S_set:list) -> float:
+def id_sensitivity_naive(resolution: int, B_set:list, S_set:list) -> float:
     """
-    Returns a value between 0 and 1, indicating how sensitive the output of this LLNA is to changing the value of a particular node.
+    Returns a value between 0 and 1, indicating how sensitive the output of this LLNA is to changing the value of a particular node. This function does not require an LLNA object, which makes the calculation much faster.
     NOTE: this is a naive definition that does not take into account the degree distribution and the state density distribution.
 
     Parameters
     ----------
-    model : src.automata.LLNA
-        Life-like network automaton (custom class). Envelops the rules that govern the automaton.
+    resolution : int
+        Positive integer indicating the resolution of the local update rule
+    B_set : list
+        list of integers corresponding to the indices of the activated density intervals in the B set
+    S_set : list
+        list of integers corresponding to the indices of the activated density intervals in the B set
 
     Returns
     -------
-    id_sens : float
+    id_sens_sens : float
         Value ranging from 0 to 1, indicating low resp. high sensitivity.
     """
     B_set = np.array(B_set)
@@ -203,6 +265,107 @@ def id_sensitivity(resolution: int, B_set:list, S_set:list) -> float:
     borders = np.logical_xor(B_set_bin, S_set_bin).sum()
     id_sens = borders / resolution
     return id_sens
+
+def boolean_sens(resolution:int, B_set:list, S_set:list, degree:int, norm_degree:bool=True, iso:bool=True):
+    """
+    Calculate the (normalised) Boolean sensitivity of the local update rule for a particular node degree. There is no need for a LLNA object (so the calculation is generally faster).
+    NOTE: this defaults to iso=True right now.
+    TODO: this is programmed really sloppily (cause it's mostly copied from previous methods), but it works.
+
+    Parameters
+    ----------
+    resolution : int
+        Positive integer indicating the resolution of the local update rule
+    B_set : list
+        list of integers corresponding to the indices of the activated density intervals in the B set
+    S_set : list
+        list of integers corresponding to the indices of the activated density intervals in the B set
+    degree : int
+        The degree of the node you want to calculate the Hamming weight for
+    norm : bool
+        True by default. Maps the Hamming weight to a value from 0 to 1. 
+    iso : bool
+        True by default. Set to False if non-isomorphic density intervals are used in the LLNA definition.
+
+    Returns
+    -------
+    HW : float or int
+        The (normalised) Hamming weight
+    """
+    if (degree < 1) or (degree > 1022):
+        raise Exception(f"Degree {degree} not allowed. The degree must be a non-zero natural number smaller than 1023.")
+    if iso and resolution % 2 == 0:
+        raise Exception(f"Resolution {resolution} is not possible when iso=True. Choose an odd positive integer.")
+    # identity sensitivity
+    def _id_sens(resolution, B_set, S_set, degree, iso=True):
+        """
+        returns an array with length degree+1, containing 0s or 1s
+            0: the corresponding state density has identical outputs when flipping the central node
+            1: the corresponding state density has different outputs when flipping the central node
+        """
+        # find density and which interval it belongs to (from one-hot vector)
+        rhos = np.linspace(0, 1, degree+1)
+        # make truthtable for resp. dead and living central nodes
+        rho_intervals = _interval_encoding(resolution, rhos[np.newaxis,:], iso=iso)[0].argmax(axis=1)
+        B_truthtable = np.array([int(rho in B_set) for rho in rho_intervals])
+        S_truthtable = np.array([int(rho in S_set) for rho in rho_intervals])
+        IS = (B_truthtable ^ S_truthtable)
+        return IS
+
+    # neighbourhood sensitivity for increasing densitity
+    def _nbh_sens_inc(resolution, B_set, S_set, si, degree, iso=True):
+        # find all possible densities except density 1 (which cannot increase)
+        rhos = np.linspace(0, 1, degree+1)[:-1]
+        # find which interval these densities belong to
+        rho_intervals = _interval_encoding(resolution, rhos[np.newaxis,:], iso=iso)[0].argmax(axis=1)
+        # find INCREASED density and which interval it belongs to (from one-hot vector)
+        rhos_inc = np.linspace(0, 1, degree+1)[1:]
+        rho_inc_intervals = _interval_encoding(resolution, rhos_inc[np.newaxis,:], iso=iso)[0].argmax(axis=1)
+        # check whether they have the same response
+        B_or_S_set = [B_set, S_set][int(si)]
+        B_or_S_truthtable = np.array([int(rho in B_or_S_set) for rho in rho_intervals])
+        B_or_S_truthtable_inc = np.array([int(rho_inc in B_or_S_set) for rho_inc in rho_inc_intervals])
+        NS_inc = (B_or_S_truthtable ^ B_or_S_truthtable_inc)
+        # add a zero at the end and return
+        return np.append(NS_inc, 0)
+
+    # neighbourhood sensitivity for decreasing densitity
+    def _nbh_sens_dec(resolution, B_set, S_set, si, degree, iso=True):
+        # find all possible densities except density 1 (which cannot increase)
+        rhos = np.linspace(0, 1, degree+1)[1:]
+        # find which interval these densities belong to
+        rho_intervals = _interval_encoding(resolution, rhos[np.newaxis,:], iso=iso)[0].argmax(axis=1)
+        # find DECREASED density and which interval it belongs to (from one-hot vector)
+        rhos_dec = np.linspace(0, 1, degree+1)[:-1]
+        rho_dec_intervals = _interval_encoding(resolution, rhos_dec[np.newaxis,:], iso=iso)[0].argmax(axis=1)
+        # check whether they have the same response
+        B_or_S_set = [B_set, S_set][int(si)]
+        B_or_S_truthtable = np.array([int(rho in B_or_S_set) for rho in rho_intervals])
+        B_or_S_truthtable_dec = np.array([int(rho_dec in B_or_S_set) for rho_dec in rho_dec_intervals])
+        NS_dec = (B_or_S_truthtable ^ B_or_S_truthtable_dec)
+        # add a zero at the end and return
+        return np.append(0, NS_dec)
+    
+    # overall neighbourhood sensitivity
+    def _nbh_sens(resolution, B_set, S_set, si, degree, iso=True):
+        sum_values = np.linspace(0, degree, degree+1)
+        NS_dec = _nbh_sens_dec(resolution, B_set, S_set, si, degree, iso=iso)
+        NS_inc = _nbh_sens_inc(resolution, B_set, S_set, si, degree, iso=iso)
+        return sum_values*NS_dec + (degree-sum_values)*NS_inc
+    
+    # use functions above to find BS
+    prefactor = 2**(-degree-1)
+    if norm_degree:
+        prefactor /= (degree+1)
+    summation = 0
+    configs_per_rho = np.array([comb(degree, k, exact=False) for k in range(degree + 1)])
+    for si in [0,1]:
+        IS = _id_sens(resolution, B_set, S_set, degree, iso=iso)
+        NS = _nbh_sens(resolution, B_set, S_set, si, degree, iso=iso)
+        term = np.sum((IS + NS) * configs_per_rho)
+        summation += term
+    BS = prefactor * summation
+    return BS
 
 def calculate_Yt(graph:ig.Graph, model:LLNA, states:np.ndarray, T:int) -> np.ndarray:
     """
@@ -297,6 +460,12 @@ def lyapunov_spectrum_analytical(rule:int, N:int, return_finite_pct=False) -> np
         finite_pct = round(len(nonzero_singular_values) / N * 100)
         return lyapunov_values, finite_pct
     return lyapunov_values
+
+def binary_indices(n: int) -> list:
+    """
+    Returns a list of indices where bits are 1 in the binary representation of n.
+    """
+    return [i for i, bit in enumerate(bin(n)[:1:-1]) if bit == '1']
 
 def eca_as_binary(eca:int):
     """
@@ -456,4 +625,20 @@ def _is_eca(eca:int):
     if eca > 255:
         return False
     return True
+
+def _interval_encoding(resolution:int, rhos, iso=True):
+    if not iso: # classic psuedo-isomorphic case
+        belongs_to  = lambda x, k: ((k <= resolution*x) & (resolution*x < k+1))
+        is_boundary = lambda x, k: ((k == resolution-1) & (x == 1))
+        return np.stack([ 
+            (belongs_to(rhos, k) | is_boundary(rhos, k)) for k in range(resolution)
+        ], 2)
+    else: # altered isomorphic case
+        belongs_to_lower = lambda x, k: ((k < resolution/2) & (x >= k/resolution) & (x < (k+1)/resolution))
+        belongs_to_middle = lambda x, k: ((k == (resolution-1)/2)  & (x >= k/resolution) & (x <= (k+1)/resolution))
+        belongs_to_upper = lambda x, k: ((k >resolution/2) & (x > k/resolution) & (x <= (k+1)/resolution))
+        return np.stack([ 
+            (belongs_to_lower(rhos,k) | belongs_to_middle(rhos,k) | belongs_to_upper(rhos,k))for k in range(resolution)
+        ], 2)
+
 # %%
