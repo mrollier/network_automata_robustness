@@ -4,8 +4,10 @@
 import numpy as np
 import torch as tc
 import igraph as ig
-from typing import Union, Tuple
+from typing import Union, Tuple, Optional, Sequence
 from scipy.special import comb
+from numpy.typing import NDArray
+import math
 
 # warnings and exceptions
 import warnings
@@ -15,7 +17,7 @@ from src.automata import LLNA
 import cellpylib as cpl
 
 # %% utilitary functions
-def jacobian(graph:ig.Graph, model:LLNA, states:np.ndarray, return_next:bool=False) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
+def jacobian(graph:ig.Graph, model:LLNA, states:NDArray[np.int_], return_next:bool=False) -> Union[NDArray[np.int_], Tuple[NDArray[np.int_], NDArray[np.int_]]]:
     """
     Returns the Jacobian matrix of partial Boolean derivatives. J[i,j] can be either 0 or 1,
     and answers the question 'is node i affected by a change in the state of node j in the previous time step?'
@@ -68,7 +70,7 @@ def jacobian(graph:ig.Graph, model:LLNA, states:np.ndarray, return_next:bool=Fal
         return J.T, states_next
     return J.T
 
-def jacobian_ECA(rule:int, states:np.ndarray, return_next:bool) -> np.ndarray:
+def jacobian_ECA(rule:int, states:NDArray[np.int_], return_next:bool) -> Union[NDArray[np.int_], Tuple[NDArray[np.int_], NDArray[np.int_]]]:
     """
     TODO: add description
     """
@@ -94,7 +96,7 @@ def jacobian_ECA(rule:int, states:np.ndarray, return_next:bool) -> np.ndarray:
         return J.T, states_next
     return J.T
 
-def defect_diameter(graph:ig.Graph, model:LLNA, states:np.ndarray, T:int, norm:bool=True) -> np.ndarray:
+def defect_diameter(graph:ig.Graph, model:LLNA, states:NDArray[np.int_], T:int, norm:bool=True) -> Union[NDArray[np.int_] ,NDArray[np.floating]]:
     """
     Calculates the configuration-space interpretation of the Lyapunov exponent after T time steps.
     This is defined by the diameter of the subgraph of all affected nodes, divided by T.
@@ -150,7 +152,7 @@ def defect_diameter(graph:ig.Graph, model:LLNA, states:np.ndarray, T:int, norm:b
         diameters = diameters/(T+1)
     return diameters
 
-def hamming_weight(resolution:int, B_set:list, S_set:list, degree:int, norm:bool=True, iso=True):
+def hamming_weight(resolution:int, B_set:Union[NDArray[np.int_], Sequence[int]], S_set:Union[NDArray[np.int_], Sequence[int]], degree:int, norm:bool=True, iso=True) -> Union[float, int]:
     """
     Calculate the (normalised) Hamming weight of the local update rule for a particular node degree. There is no need for a LLNA object (so the calculation is generally faster).
     NOTE: this defaults to iso=True right now.
@@ -178,11 +180,11 @@ def hamming_weight(resolution:int, B_set:list, S_set:list, degree:int, norm:bool
     # NOTE: so far this is limited to degree 1022
     # this is identical to the Langton parameter!
     if (degree < 1) or (degree > 1022):
-        raise Exception(f"Degree {degree} not allowed. The degree must be a non-zero natural number smaller than 1023.")
+        raise ValueError(f"Degree {degree} not allowed. The degree must be a non-zero natural number smaller than 1023.")
     if iso and resolution % 2 == 0:
-        raise Exception(f"Resolution {resolution} is not possible when iso=True. Choose an odd positive integer.")
+        raise ValueError(f"Resolution {resolution} is not possible when iso=True. Choose an odd positive integer.")
     if (B_set and (np.max(B_set) >= resolution)) or (S_set and (np.max(S_set) >= resolution)):
-        raise Exception(f"Resolution {resolution} is to small for the provided update intervals.")
+        raise ValueError(f"Resolution {resolution} is too small for the provided update intervals.")
     # all possible densities for this degree
     rhos = np.linspace(0, 1, degree+1)
     # the number of configurations that correspond to this density
@@ -205,7 +207,7 @@ def hamming_weight(resolution:int, B_set:list, S_set:list, degree:int, norm:bool
         return HW_norm
     return int(HW)
 
-def nbh_sensitivity_naive(resolution: int, B_set:list, S_set:list) -> float:
+def nbh_sensitivity_naive(resolution: int, B_set:Union[NDArray[np.int_], Sequence[int]], S_set:Union[NDArray[np.int_], Sequence[int]]) -> float:
     """
     Returns a value between 0 and 1, indicating how sensitive the output of this LLNA is to slightly changing the neighbourhood density. This function does not require an LLNA object, which makes the calculation much faster.
     NOTE: this is a naive definition that does not take into account the degree distribution and the state density distribution.
@@ -214,9 +216,9 @@ def nbh_sensitivity_naive(resolution: int, B_set:list, S_set:list) -> float:
     ----------
     resolution : int
         Positive integer indicating the resolution of the local update rule
-    B_set : list
+    B_set : list or numpy.ndarray
         list of integers corresponding to the indices of the activated density intervals in the B set
-    S_set : list
+    S_set : list or numpy.ndarray
         list of integers corresponding to the indices of the activated density intervals in the B set
 
     Returns
@@ -224,8 +226,8 @@ def nbh_sensitivity_naive(resolution: int, B_set:list, S_set:list) -> float:
     nbh_sens_naive : float
         Value ranging from 0 to 1, indicating low resp. high sensitivity.
     """
-    B_set = np.array(B_set)
-    S_set = np.array(S_set)
+    B_set = np.asarray(B_set, dtype=int)
+    S_set = np.asarray(S_set, dtype=int)
     # turn interval index into bits
     B_set_bin = np.zeros(resolution, dtype=int)
     S_set_bin = np.zeros(resolution, dtype=int)
@@ -238,7 +240,7 @@ def nbh_sensitivity_naive(resolution: int, B_set:list, S_set:list) -> float:
     nbh_sens_naive = (borders_B + borders_S)/(resolution-1)/2
     return nbh_sens_naive
 
-def id_sensitivity_naive(resolution: int, B_set:list, S_set:list) -> float:
+def id_sensitivity_naive(resolution: int, B_set:Union[NDArray[np.int_], Sequence[int]], S_set:Union[NDArray[np.int_], Sequence[int]]) -> float:
     """
     Returns a value between 0 and 1, indicating how sensitive the output of this LLNA is to changing the value of a particular node. This function does not require an LLNA object, which makes the calculation much faster.
     NOTE: this is a naive definition that does not take into account the degree distribution and the state density distribution.
@@ -268,7 +270,7 @@ def id_sensitivity_naive(resolution: int, B_set:list, S_set:list) -> float:
     id_sens = borders / resolution
     return id_sens
 
-def boolean_sens(resolution:int, B_set:list, S_set:list, degree:int, norm_degree:bool=True, iso:bool=True):
+def boolean_sens(resolution:int, B_set:Union[NDArray[np.int_], Sequence[int]], S_set:Union[NDArray[np.int_], Sequence[int]], degree:int, norm_degree:bool=True, iso:bool=True) -> float:
     """
     Calculate the (normalised) Boolean sensitivity of the local update rule for a particular node degree. There is no need for a LLNA object (so the calculation is generally faster).
     NOTE: this defaults to iso=True right now.
@@ -278,9 +280,9 @@ def boolean_sens(resolution:int, B_set:list, S_set:list, degree:int, norm_degree
     ----------
     resolution : int
         Positive integer indicating the resolution of the local update rule
-    B_set : list
+    B_set : list or numpy.ndarray
         list of integers corresponding to the indices of the activated density intervals in the B set
-    S_set : list
+    S_set : list or numpy.ndarray
         list of integers corresponding to the indices of the activated density intervals in the B set
     degree : int
         The degree of the node you want to calculate the Hamming weight for
@@ -291,15 +293,15 @@ def boolean_sens(resolution:int, B_set:list, S_set:list, degree:int, norm_degree
 
     Returns
     -------
-    HW : float or int
-        The (normalised) Hamming weight
+    BS : float
+        The (normalised) Boolean sensitivity
     """
     if (degree < 1) or (degree > 1022):
-        raise Exception(f"Degree {degree} not allowed. The degree must be a non-zero natural number smaller than 1023.")
+        raise ValueError(f"Degree {degree} not allowed. The degree must be a non-zero natural number smaller than 1023.")
     if iso and resolution % 2 == 0:
-        raise Exception(f"Resolution {resolution} is not possible when iso=True. Choose an odd positive integer.")
+        raise ValueError(f"Resolution {resolution} is not possible when iso=True. Choose an odd positive integer.")
     if (B_set and (np.max(B_set) >= resolution)) or (S_set and (np.max(S_set) >= resolution)):
-        raise Exception(f"Resolution {resolution} is to small for the provided update intervals.")
+        raise ValueError(f"Resolution {resolution} is to small for the provided update intervals.")
     # identity sensitivity
     def _id_sens(resolution, B_set, S_set, degree, iso=True):
         """
@@ -371,7 +373,7 @@ def boolean_sens(resolution:int, B_set:list, S_set:list, degree:int, norm_degree
     BS = prefactor * summation
     return BS
 
-def calculate_Yt(graph:ig.Graph, model:LLNA, states:np.ndarray, T:int) -> np.ndarray:
+def calculate_Yt(graph:ig.Graph, model:LLNA, states:NDArray[np.int_], T:int) -> NDArray[np.floating]:
     """
     Calculates the perturbation of the unit defect sphere Y0 in tangent space starting from the point in configuration space indicated by the states array, after T time steps. This is used to calculate the tangent-space interpretation of the Lyapunov exponent of a cellular automaton or network automaton.
 
@@ -397,10 +399,10 @@ def calculate_Yt(graph:ig.Graph, model:LLNA, states:np.ndarray, T:int) -> np.nda
     # multiply subsequent Jacobians
     for _ in range(T):
         J, states = jacobian(graph, model, states, return_next=True)
-        Yt = np.matmul(J.astype(np.float64), Yt) # no mod 2!
+        Yt = np.matmul(J.astype(np.float64), Yt) # no mod 2! And no integers to avoid overflow!
     return Yt
 
-def lyapunov_spectrum(Yt:np.ndarray, T:int) -> np.ndarray:
+def lyapunov_spectrum(Yt:Union[NDArray[np.floating], NDArray[np.int_]], T:int) -> NDArray[np.floating]:
     """
     Calculates the Lyapunov spectrum in the tangent-space interpretation, by taking the natural logarithm of the singular values of the evolved unit-perturbation sphere.
 
@@ -429,15 +431,15 @@ def lyapunov_spectrum(Yt:np.ndarray, T:int) -> np.ndarray:
     lambdas = np.log(singulars)/T
     return lambdas
 
-def lyapunov_spectrum_analytical(rule:int, N:int, return_finite_pct=False) -> np.ndarray:
+def lyapunov_spectrum_analytical(rule:int, N:int, return_finite_pct=False) -> Union[NDArray[np.floating], Tuple[NDArray[np.floating], float]]:
     """
     Calculates the Lyapunov spectrum in the tangent-space interpretation, by taking the natural logarithm of the singular values of the evolved unit-perturbation sphere. Here we make use of the (supposed) fact that we are calculating the singular values for an ECA with a constant Jacobian. This Jacobian is circulant, which in turn allows for an analytical expression. In so doing, we avoid any numerical instabilities that tend to arise in the numerical approach.
     """
     # exceptions
     if not eca_has_constantJ(rule):
-        raise Exception(f"Rule {rule} does not have a constant Jacobian.")
+        raise ValueError(f"Rule {rule} does not have a constant Jacobian.")
     if N<0:
-        raise Exception(f"The number of nodes must be a natural number. Got N={N}.")
+        raise ValueError(f"The number of nodes must be a natural number. Got N={N}.")
     # find constants
     J = jacobian_ECA(rule, np.zeros(N), return_next=False)
     triplet = J[1,0:3]
@@ -448,15 +450,12 @@ def lyapunov_spectrum_analytical(rule:int, N:int, return_finite_pct=False) -> np
     cc1 = c0*c1 + cN_1*c0
     cc2 = cN_1*c1
     # calculate singular values
-    singular_values = []
-    for k in range(N):
-        # note: for some reason this loop takes a long time
-        arg = cc0 + 2*cc1*np.cos(2*k*np.pi/N) + 2*cc2*np.cos(4*k*np.pi/N)
-        # numerical errors occur sometimes already here!
-        if arg < 0: warnings.warn(f"Numerical issue: a square root argument is negative for rule {rule}: {arg}.", UserWarning)
-        singular_value = np.sqrt(arg)
-        singular_values.append(singular_value)
-    singular_values = np.array(singular_values)
+
+    k_values = np.arange(N)
+    eigenvalues = cc0 + 2 * cc1 * np.cos(2 * k_values * np.pi / N) + 2 * cc2 * np.cos(4 * k_values * np.pi / N)
+    if np.any(eigenvalues) < 0:
+        raise ValueError("Due to a numerical error, there are negative values among the eigenvalues.")
+    singular_values = np.sqrt(eigenvalues)
     # eliminate singular values of zero (and negative ones from numerical problems)
     nonzero_singular_values = singular_values[singular_values>0]
     lyapunov_values = np.log(nonzero_singular_values)
@@ -465,25 +464,25 @@ def lyapunov_spectrum_analytical(rule:int, N:int, return_finite_pct=False) -> np
         return lyapunov_values, finite_pct
     return lyapunov_values
 
-def binary_indices(n: int) -> list:
+def binary_indices(n: int) -> list[int]:
     """
     Returns a list of indices where bits are 1 in the binary representation of n.
     """
     return [i for i, bit in enumerate(bin(n)[:1:-1]) if bit == '1']
 
-def eca_as_binary(eca:int):
+def eca_as_binary(eca:int) -> str:
     """
     Returns the ECA as a binary number consisting of exactly 8 digits.
     """
     # check value of ECA
     if not _is_eca(eca):
-        raise Exception(f"The integer {eca} is not a valid ECA.")
+        raise ValueError(f"The integer {eca} is not a valid ECA.")
     # body
     eca_binary = np.base_repr(eca, base=2)
     eca_binary = '0'*(8-len(eca_binary)) + eca_binary
     return eca_binary
 
-def lr_symmetric_eca(eca:int):
+def lr_symmetric_eca(eca:int) -> int:
     """
     Calculates the ECA that is left-right symmetric to the ECA in the argument
 
@@ -499,14 +498,14 @@ def lr_symmetric_eca(eca:int):
     """
     # check value of ECA
     if not _is_eca(eca):
-        raise Exception(f"The integer {eca} is not a valid ECA.")
+        raise ValueError(f"The integer {eca} is not a valid ECA.")
     # body
     eca_bin = eca_as_binary(eca)
     lr_eca_bin = eca_bin[0] + eca_bin[4] + eca_bin[2] + eca_bin[6] + eca_bin[1] + eca_bin[5] + eca_bin[3] + eca_bin[7]
     lr_eca = int(lr_eca_bin, base=2)
     return lr_eca
 
-def bw_symmetric_eca(eca:int):
+def bw_symmetric_eca(eca:int) -> int:
     """
     Calculates the ECA that is black-white symmetric to the ECA in the argument
 
@@ -522,7 +521,7 @@ def bw_symmetric_eca(eca:int):
     """
     # check value of ECA
     if not _is_eca(eca):
-        raise Exception(f"The integer {eca} is not a valid ECA.")
+        raise ValueError(f"The integer {eca} is not a valid ECA.")
     # body
     eca_bin = eca_as_binary(eca)
     inv_eca_bin = eca_bin[::-1]
@@ -539,7 +538,7 @@ def lp_class_dict() -> dict:
 
 def eca_to_llna(eca:int):
     if not eca_is_llna(eca):
-        raise Exception(f"Rule {eca} cannot be translated to an LLNA.")
+        raise ValueError(f"Rule {eca} cannot be translated to an LLNA.")
     eca_binary_reverse = eca_as_binary(eca)[::-1]
     B_set = []
     S_set = []
@@ -553,7 +552,7 @@ def eca_to_llna(eca:int):
 
 def eca_is_totalistic(eca:int) -> bool:
     if not _is_eca(eca):
-        raise Exception(f"ECA '{eca}' is not recognised as an elementary cellular automaton. Choose an integer from 0 to 255.")
+        raise ValueError(f"ECA '{eca}' is not recognised as an elementary cellular automaton. Choose an integer from 0 to 255.")
     # make list of all totalistic ECAs
     totalistic_ecas = []
     for b7 in [0,1]:
@@ -570,7 +569,7 @@ def eca_is_totalistic(eca:int) -> bool:
 
 def eca_is_llna(eca:int) -> bool:
     if not _is_eca(eca):
-        raise Exception(f"ECA '{eca}' is not recognised as an elementary cellular automaton. Choose an integer from 0 to 255.")
+        raise ValueError(f"ECA '{eca}' is not recognised as an elementary cellular automaton. Choose an integer from 0 to 255.")
     # make list of all totalistic ECAs
     llna_ecas = []
     for b7 in [0,1]:
@@ -586,6 +585,69 @@ def eca_is_llna(eca:int) -> bool:
     if eca in llna_ecas:
         return True
     return False
+
+def get_derrida_arrays(graph:ig.Graph, model:LLNA, points_per_rho:int=1, init_config:Optional[NDArray]=None) -> Tuple[NDArray, NDArray]:
+    """
+    Function that generates the arrays that are required for creating a Derrida plot. It effectively selects `points_per_rho` randomly chosen defects per normalised Hamming distance.
+    TODO: add a parameter to choose the number of random initial conditions
+    TODO: add the possiblity of adding an array of multiple initial configurations
+    TODO: add possiblity of choosing the order in which the nodes should be affected
+
+    Parameters
+    ----------
+    graph : igraph.Graph
+        Network (graph) used as the topology for the automaton. Will be interpreted as an undirected graph.
+    model : src.automata.LLNA
+        Life-like network automaton (custom class). Envelops the rules that govern the automaton.
+    points_per_rho : int
+        The desired number of data points per normalised Hamming weights in the input. If None the number will default to 1.
+    init_config : numpy.ndarray, optional
+        The desired initial configuration. If None, a random initial configuration is generated from a uniform distribution.
+
+    Returns
+    -------
+    input_defect_density : numpy.ndarray
+        Array containing the densities of the defects, i.e. the normalised Hamming distance, of the two original initial configurations.
+    output_defect_density : numpy.ndarray
+        Array containing the densities of the defects of the two configurations in the next time step.
+    """
+    # find the number of nodes in the network
+    N = graph.vcount()
+
+    # generate or verify the initial configuration
+    if init_config is not None:
+        if len(init_config) != N:
+            raise ValueError(f"The provided initial configuration should have length {N}.")
+    else:
+        init_config = np.random.randint(0,2,size=N)
+
+    # get a long array of unique defects
+    if points_per_rho > N:
+        raise Exception(f"The number of data points per normalised hamming weight cannot be larger than or equal to {N}, because there are not that many unique combinations of defect arrays.")
+    # create defect array using a help function
+    defects_all = np.array([_random_ones_arrays(N, points_per_rho, ones_per_array) for ones_per_array in range(1,N)])
+    # put it in the right shape
+    defects_all = defects_all.reshape((N-1)*points_per_rho, N)
+
+    # calculate the effect of this defect on the initial configuration
+    init_config_all = np.tile(init_config, ((N-1)*points_per_rho,1))
+    init_config_defect_all = (init_config_all + defects_all) % 2
+
+    # get ID of edges (bidirectional)
+    graph.to_directed()
+    edges = tc.tensor(graph.get_edgelist()).T
+    graph.to_undirected()
+
+    # run the model for a single time step
+    next_config = np.array(model.step(edges, tc.tensor(init_config[np.newaxis,:])), dtype=int)[0]
+    next_config_all = np.tile(next_config, ((N-1)*points_per_rho,1))
+    next_config_defect_all = np.array(model.step(edges, tc.tensor(init_config_defect_all)), dtype=int)
+
+    # find the normalised Hamming distance between both new configurations
+    input_defect_density  = np.mean(defects_all, axis=1)
+    output_defect_density = np.mean((next_config_all + next_config_defect_all) % 2, axis=1)
+
+    return input_defect_density, output_defect_density
 
 def eca_has_constantJ(eca:int) -> bool:
     if not _is_eca(eca):
@@ -644,5 +706,45 @@ def _interval_encoding(resolution:int, rhos, iso=True):
         return np.stack([ 
             (belongs_to_lower(rhos,k) | belongs_to_middle(rhos,k) | belongs_to_upper(rhos,k))for k in range(resolution)
         ], 2)
+
+def _random_ones_arrays(size: int, num_arrays: int, ones_per_array: int) -> NDArray:
+    """
+    Generates N arrays of given size, each containing a specified number of ones 
+    at unique positions per row, ensuring rows are not identical.
+    NOTE: made with ChatGPT
+
+    Parameters
+    ----------
+    size : int
+        The size of each array.
+    num_arrays : int
+        The number of arrays to generate.
+    ones_per_array : int
+        The number of ones per array.
+
+    Returns
+    -------
+    numpy.ndarray
+        A NumPy array of shape (num_arrays, size) where each row has exactly `ones_per_array` ones
+        at unique positions per row, ensuring rows are unique.
+    """
+    if ones_per_array > size:
+        raise ValueError("ones_per_array cannot exceed the array size (not enough space).")
+    if num_arrays > math.comb(size, ones_per_array):
+        raise ValueError("Not enough unique combinations of ones available.")
+
+    arr = np.zeros((num_arrays, size), dtype=int)  # Initialize all zeros
+    unique_rows = set()
+
+    for i in range(num_arrays):
+        while True:
+            indices = tuple(sorted(np.random.choice(size, ones_per_array, replace=False)))  # Unique positions as a tuple
+            if indices not in unique_rows:
+                unique_rows.add(indices)
+                break  # Found a unique row
+
+        arr[i, list(indices)] = 1  # Set ones at selected positions
+
+    return arr
 
 # %%
