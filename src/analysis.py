@@ -17,7 +17,12 @@ from src.automata import LLNA
 import cellpylib as cpl
 
 # %% utilitary functions
-def jacobian(graph:ig.Graph, model:LLNA, states:NDArray[np.int_], return_next:bool=False) -> Union[NDArray[np.int_], Tuple[NDArray[np.int_], NDArray[np.int_]]]:
+def jacobian(
+    graph:ig.Graph,
+    model:LLNA,
+    states:NDArray[np.int_],
+    return_next:bool=False
+) -> Union[NDArray[np.int_], Tuple[NDArray[np.int_], NDArray[np.int_]]]:
     """
     Returns the Jacobian matrix of partial Boolean derivatives. J[i,j] can be either 0 or 1,
     and answers the question 'is node i affected by a change in the state of node j in the previous time step?'
@@ -70,7 +75,11 @@ def jacobian(graph:ig.Graph, model:LLNA, states:NDArray[np.int_], return_next:bo
         return J.T, states_next
     return J.T
 
-def jacobian_ECA(rule:int, states:NDArray[np.int_], return_next:bool) -> Union[NDArray[np.int_], Tuple[NDArray[np.int_], NDArray[np.int_]]]:
+def jacobian_ECA(
+    rule:int,
+    states:NDArray[np.int_],
+    return_next:bool
+) -> Union[NDArray[np.int_], Tuple[NDArray[np.int_], NDArray[np.int_]]]:
     """
     TODO: add description
     """
@@ -96,7 +105,13 @@ def jacobian_ECA(rule:int, states:NDArray[np.int_], return_next:bool) -> Union[N
         return J.T, states_next
     return J.T
 
-def defect_diameter(graph:ig.Graph, model:LLNA, states:NDArray[np.int_], T:int, norm:bool=True) -> Union[NDArray[np.int_] ,NDArray[np.floating]]:
+def defect_diameter(
+    graph:ig.Graph,
+    model:LLNA,
+    states:NDArray[np.int_],
+    T:int,
+    norm:bool=True
+) -> Union[NDArray[np.int_] ,NDArray[np.floating]]:
     """
     Calculates the configuration-space interpretation of the Lyapunov exponent after T time steps.
     This is defined by the diameter of the subgraph of all affected nodes, divided by T.
@@ -152,7 +167,14 @@ def defect_diameter(graph:ig.Graph, model:LLNA, states:NDArray[np.int_], T:int, 
         diameters = diameters/(T+1)
     return diameters
 
-def hamming_weight(resolution:int, B_set:Union[NDArray[np.int_], Sequence[int]], S_set:Union[NDArray[np.int_], Sequence[int]], degree:int, norm:bool=True, iso=True) -> Union[float, int]:
+def hamming_weight(
+    resolution:int,
+    B_set:Union[NDArray[np.int_], Sequence[int]],
+    S_set:Union[NDArray[np.int_], Sequence[int]],
+    degree:int,
+    norm:bool=True,
+    iso=True
+) -> Union[float, int]:
     """
     Calculate the (normalised) Hamming weight of the local update rule for a particular node degree. There is no need for a LLNA object (so the calculation is generally faster).
     NOTE: this defaults to iso=True right now.
@@ -207,7 +229,11 @@ def hamming_weight(resolution:int, B_set:Union[NDArray[np.int_], Sequence[int]],
         return HW_norm
     return int(HW)
 
-def nbh_sensitivity_naive(resolution: int, B_set:Union[NDArray[np.int_], Sequence[int]], S_set:Union[NDArray[np.int_], Sequence[int]]) -> float:
+def nbh_sensitivity_naive(
+    resolution: int,
+    B_set:Union[NDArray[np.int_], Sequence[int]],
+    S_set:Union[NDArray[np.int_], Sequence[int]]
+) -> float:
     """
     Returns a value between 0 and 1, indicating how sensitive the output of this LLNA is to slightly changing the neighbourhood density. This function does not require an LLNA object, which makes the calculation much faster.
     NOTE: this is a naive definition that does not take into account the degree distribution and the state density distribution.
@@ -240,7 +266,11 @@ def nbh_sensitivity_naive(resolution: int, B_set:Union[NDArray[np.int_], Sequenc
     nbh_sens_naive = (borders_B + borders_S)/(resolution-1)/2
     return nbh_sens_naive
 
-def id_sensitivity_naive(resolution: int, B_set:Union[NDArray[np.int_], Sequence[int]], S_set:Union[NDArray[np.int_], Sequence[int]]) -> float:
+def id_sensitivity_naive(
+    resolution: int,
+    B_set:Union[NDArray[np.int_], Sequence[int]],
+    S_set:Union[NDArray[np.int_], Sequence[int]]
+) -> float:
     """
     Returns a value between 0 and 1, indicating how sensitive the output of this LLNA is to changing the value of a particular node. This function does not require an LLNA object, which makes the calculation much faster.
     NOTE: this is a naive definition that does not take into account the degree distribution and the state density distribution.
@@ -270,7 +300,14 @@ def id_sensitivity_naive(resolution: int, B_set:Union[NDArray[np.int_], Sequence
     id_sens = borders / resolution
     return id_sens
 
-def boolean_sens(resolution:int, B_set:Union[NDArray[np.int_], Sequence[int]], S_set:Union[NDArray[np.int_], Sequence[int]], degree:int, norm_degree:bool=True, iso:bool=True) -> float:
+def boolean_sens(
+    resolution:int,
+    B_set:Union[NDArray[np.int_], Sequence[int]],
+    S_set:Union[NDArray[np.int_], Sequence[int]],
+    degree:int,
+    norm_degree:bool=True,
+    iso:bool=True
+) -> float:
     """
     Calculate the (normalised) Boolean sensitivity of the local update rule for a particular node degree. There is no need for a LLNA object (so the calculation is generally faster).
     NOTE: this defaults to iso=True right now.
@@ -373,7 +410,55 @@ def boolean_sens(resolution:int, B_set:Union[NDArray[np.int_], Sequence[int]], S
     BS = prefactor * summation
     return BS
 
-def calculate_Yt(graph:ig.Graph, model:LLNA, states:NDArray[np.int_], T:int) -> NDArray[np.floating]:
+# Define a function that identifies equivalent update rule
+def return_equivalent_rule(
+    resolution:int,
+    B_set:Union[NDArray[np.int_], Sequence[int]],
+    S_set:Union[NDArray[np.int_], Sequence[int]],
+    return_decimals:bool=False
+) -> Union[Tuple[NDArray[np.int_], NDArray[np.int_]], Tuple[int,int]]:
+    """
+    A function that returns the beta and sigma integer of the equivalent local update rule.
+
+    Parameters
+    ----------
+    resolution : int
+        Positive integer indicating the resolution of the local update rule.
+    B_set : list or numpy.ndarray
+        list of integers corresponding to the indices of the activated density intervals in the B set.
+    S_set : list or numpy.ndarray
+        list of integers corresponding to the indices of the activated density intervals in the B set.
+
+    Returns
+    -------
+    B_set_equiv : list or numpy.ndarray
+        list of integers corresponding to the indices of the activated density intervals in the B set of the equivalent rule.
+    S_set_equiv : list or numpy.ndarray
+        list of integers corresponding to the indices of the activated density intervals in the B set of the equivalent rule.
+    """
+    # make sure the sets are numpy.ndarray
+    B_set = np.asarray(B_set, dtype=int)
+    S_set = np.asarray(S_set, dtype=int)
+    # mirror the sets
+    B_set_mirror = resolution - 1 - B_set
+    S_set_mirror = resolution - 1 - S_set
+    # complement the sets
+    B_set_mirror_comp = np.setdiff1d(np.arange(resolution), B_set_mirror)
+    S_set_mirror_comp = np.setdiff1d(np.arange(resolution), S_set_mirror)
+    # switch up the sets
+    B_set_equiv = S_set_mirror_comp
+    S_set_equiv = B_set_mirror_comp
+    if not return_decimals:
+        return B_set_equiv, S_set_equiv
+    beta_equiv = int(np.sum([2**idx for idx in B_set_equiv]))
+    sigma_equiv = int(np.sum([2**idx for idx in S_set_equiv]))
+    return beta_equiv, sigma_equiv
+
+def calculate_Yt(
+    graph:ig.Graph,
+    model:LLNA,
+    states:NDArray[np.int_], T:int
+) -> NDArray[np.floating]:
     """
     Calculates the perturbation of the unit defect sphere Y0 in tangent space starting from the point in configuration space indicated by the states array, after T time steps. This is used to calculate the tangent-space interpretation of the Lyapunov exponent of a cellular automaton or network automaton.
 
@@ -402,7 +487,10 @@ def calculate_Yt(graph:ig.Graph, model:LLNA, states:NDArray[np.int_], T:int) -> 
         Yt = np.matmul(J.astype(np.float64), Yt) # no mod 2! And no integers to avoid overflow!
     return Yt
 
-def lyapunov_spectrum(Yt:Union[NDArray[np.floating], NDArray[np.int_]], T:int) -> NDArray[np.floating]:
+def lyapunov_spectrum(
+    Yt:Union[NDArray[np.floating], NDArray[np.int_]],
+    T:int
+) -> NDArray[np.floating]:
     """
     Calculates the Lyapunov spectrum in the tangent-space interpretation, by taking the natural logarithm of the singular values of the evolved unit-perturbation sphere.
 
@@ -431,7 +519,11 @@ def lyapunov_spectrum(Yt:Union[NDArray[np.floating], NDArray[np.int_]], T:int) -
     lambdas = np.log(singulars)/T
     return lambdas
 
-def lyapunov_spectrum_analytical(rule:int, N:int, return_finite_pct=False) -> Union[NDArray[np.floating], Tuple[NDArray[np.floating], float]]:
+def lyapunov_spectrum_analytical(
+    rule:int,
+    N:int,
+    return_finite_pct=False
+) -> Union[NDArray[np.floating], Tuple[NDArray[np.floating], float]]:
     """
     Calculates the Lyapunov spectrum in the tangent-space interpretation, by taking the natural logarithm of the singular values of the evolved unit-perturbation sphere. Here we make use of the (supposed) fact that we are calculating the singular values for an ECA with a constant Jacobian. This Jacobian is circulant, which in turn allows for an analytical expression. In so doing, we avoid any numerical instabilities that tend to arise in the numerical approach.
     """
@@ -586,7 +678,14 @@ def eca_is_llna(eca:int) -> bool:
         return True
     return False
 
-def get_derrida_arrays(graph:ig.Graph, model:LLNA, points_per_rho:int=1, init_config:Optional[NDArray]=None) -> Tuple[NDArray, NDArray]:
+def get_derrida_arrays(
+    graph:ig.Graph,
+    model:LLNA,
+    points_per_rho:int=1,
+    num_init_configs:Optional[int]=None,
+    init_configs:Optional[NDArray]=None,
+    return_until_dens:float=1.0
+) -> Tuple[NDArray, NDArray]:
     """
     Function that generates the arrays that are required for creating a Derrida plot. It effectively selects `points_per_rho` randomly chosen defects per normalised Hamming distance.
     TODO: add a parameter to choose the number of random initial conditions
@@ -601,8 +700,12 @@ def get_derrida_arrays(graph:ig.Graph, model:LLNA, points_per_rho:int=1, init_co
         Life-like network automaton (custom class). Envelops the rules that govern the automaton.
     points_per_rho : int
         The desired number of data points per normalised Hamming weights in the input. If None the number will default to 1.
-    init_config : numpy.ndarray, optional
-        The desired initial configuration. If None, a random initial configuration is generated from a uniform distribution.
+    num_init_configs : int, optional
+        Number of randomly chosen initial configurations. If None, the number of randomly chosen initial configuration defaults to 1. Must be None if the init_config kwarg is used.
+    init_configs : numpy.ndarray, optional
+        The desired initial configuration. Can be a single array, or an array of arrays. If None, a random initial configuration is generated from a uniform distribution.
+    return_until_dens : float
+        The maximum density of defects for which the Derrida plot arrays are calculated. Default is 1.0 (the full plot).
 
     Returns
     -------
@@ -615,33 +718,49 @@ def get_derrida_arrays(graph:ig.Graph, model:LLNA, points_per_rho:int=1, init_co
     N = graph.vcount()
 
     # generate or verify the initial configuration
-    if init_config is not None:
-        if len(init_config) != N:
-            raise ValueError(f"The provided initial configuration should have length {N}.")
-    else:
-        init_config = np.random.randint(0,2,size=N)
+    if init_configs is not None:
+        if num_init_configs is not None:
+            raise ValueError(f"When manually entering the initial configurations, the kwarg `num_init_config` must be None.")
+        if init_configs.shape[-1] != N:
+            raise ValueError(f"The provided initial configuration(s) should have length {N}.")
+        if init_configs.ndim > 2:
+            raise ValueError(f"The provided initial configuration(s) should have either 1 or 2 dimensions.")
+        if init_configs.ndim < 2: # fix dimensions if just a single array is given
+            init_config = init_configs[np.newaxis, :]
+        num_init_configs = init_configs.shape[0]
+    else: # make a single random initial configuration
+        if num_init_configs is None:
+            num_init_configs = 1
+        init_configs= np.random.randint(0,2,size=(num_init_configs,N))
 
     # get a long array of unique defects
-    if points_per_rho > N:
-        raise Exception(f"The number of data points per normalised hamming weight cannot be larger than or equal to {N}, because there are not that many unique combinations of defect arrays.")
+    if (points_per_rho*num_init_configs) > N:
+        raise Exception(f"The number of data points per normalised hamming weight cannot be larger than or equal to {N}, because there are not that many unique combinations of defect arrays. Lower the points per density and/or the number of initial configuration.")
+    # calculate the cutoff value of the defect density
+    if not (1/N < return_until_dens <= 1.):
+        raise ValueError(f"The kwarg return_until_dens must be a value between {int(1/N*100)/100} and 1.")
+    max_ones_per_array = int(N*return_until_dens)
     # create defect array using a help function
-    defects_all = np.array([_random_ones_arrays(N, points_per_rho, ones_per_array) for ones_per_array in range(1,N)])
+    defects_all = np.array([_random_ones_arrays(N, points_per_rho*num_init_configs, ones_per_array) for ones_per_array in range(1,max_ones_per_array)])
     # put it in the right shape
-    defects_all = defects_all.reshape((N-1)*points_per_rho, N)
+    defects_all = defects_all.reshape((max_ones_per_array-1)*points_per_rho*num_init_configs, N)
 
+    # put array in the shape where the first dimension has all the samples (with increasing number of ones per array), and the second has the length N
+    init_configs_all = np.tile(init_configs, ((max_ones_per_array-1)*points_per_rho,1))
     # calculate the effect of this defect on the initial configuration
-    init_config_all = np.tile(init_config, ((N-1)*points_per_rho,1))
-    init_config_defect_all = (init_config_all + defects_all) % 2
+    init_configs_defect_all = (init_configs_all + defects_all) % 2
 
     # get ID of edges (bidirectional)
     graph.to_directed()
     edges = tc.tensor(graph.get_edgelist()).T
     graph.to_undirected()
 
-    # run the model for a single time step
-    next_config = np.array(model.step(edges, tc.tensor(init_config[np.newaxis,:])), dtype=int)[0]
-    next_config_all = np.tile(next_config, ((N-1)*points_per_rho,1))
-    next_config_defect_all = np.array(model.step(edges, tc.tensor(init_config_defect_all)), dtype=int)
+    # run the model for a single time step for the various initial conditions
+    next_config = np.array(model.step(edges, tc.tensor(init_configs)), dtype=int)
+    # copy the output as many times as required (for points_per_rho)
+    next_config_all = np.tile(next_config, ((max_ones_per_array-1)*points_per_rho,1))
+    # run the model for a single time step for all the defected initial conditions
+    next_config_defect_all = np.array(model.step(edges, tc.tensor(init_configs_defect_all)), dtype=int)
 
     # find the normalised Hamming distance between both new configurations
     input_defect_density  = np.mean(defects_all, axis=1)
