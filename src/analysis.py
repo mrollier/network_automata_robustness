@@ -77,9 +77,9 @@ def jacobian(
 
 def jacobian_ECA(
     rule:int,
-    states:NDArray[np.int_],
+    states:NDArray,
     return_next:bool
-) -> Union[NDArray[np.int_], Tuple[NDArray[np.int_], NDArray[np.int_]]]:
+) -> Union[NDArray, Tuple[NDArray, NDArray]]:
     """
     TODO: add description
     """
@@ -726,7 +726,7 @@ def get_derrida_arrays(
         if init_configs.ndim > 2:
             raise ValueError(f"The provided initial configuration(s) should have either 1 or 2 dimensions.")
         if init_configs.ndim < 2: # fix dimensions if just a single array is given
-            init_config = init_configs[np.newaxis, :]
+            init_configs = init_configs[np.newaxis, :]
         num_init_configs = init_configs.shape[0]
     else: # make a single random initial configuration
         if num_init_configs is None:
@@ -735,19 +735,22 @@ def get_derrida_arrays(
 
     # get a long array of unique defects
     if (points_per_rho*num_init_configs) > N:
-        raise Exception(f"The number of data points per normalised hamming weight cannot be larger than or equal to {N}, because there are not that many unique combinations of defect arrays. Lower the points per density and/or the number of initial configuration.")
+        raise Exception(f"The number of data points per normalised hamming weight cannot be larger than or equal to {N}, because there are not that many unique combinations of defect arrays.\nLower the points per density and/or the number of initial configuration, and/or increase the number of nodes in the network.")
     # calculate the cutoff value of the defect density
-    if not (1/N < return_until_dens <= 1.):
-        raise ValueError(f"The kwarg return_until_dens must be a value between {int(1/N*100)/100} and 1.")
+    if not (1/N <= return_until_dens <= 1.):
+        raise ValueError(f"The kwarg return_until_dens must be a value between {1/N} and 1.")
     max_ones_per_array = int(N*return_until_dens)
-    # create defect array using a help function
-    defects_all = np.array([_random_ones_arrays(N, points_per_rho*num_init_configs, ones_per_array) for ones_per_array in range(1,max_ones_per_array)])
-    # put it in the right shape
-    defects_all = defects_all.reshape((max_ones_per_array-1)*points_per_rho*num_init_configs, N)
+    # take case where max_ones is N, which is not helpful
+    max_ones_per_array = min(N-1, max_ones_per_array)
+    # create array of max ones
+    max_ones_per_array_range = range(1,max_ones_per_array+1)
+    # create defect array using a helper function
+    defects_all = np.vstack([_random_ones_arrays(N, points_per_rho*num_init_configs, ones_per_array) for ones_per_array in max_ones_per_array_range])
 
-    # put array in the shape where the first dimension has all the samples (with increasing number of ones per array), and the second has the length N
-    init_configs_all = np.tile(init_configs, ((max_ones_per_array-1)*points_per_rho,1))
-    # calculate the effect of this defect on the initial configuration
+    # copy the initial configurations points_per_rho times
+    num_rhos = len(max_ones_per_array_range)
+    init_configs_all = np.tile(init_configs, (points_per_rho*num_rhos,1))
+    # add the defects to the initial configurations in ascending order of number of defects
     init_configs_defect_all = (init_configs_all + defects_all) % 2
 
     # get ID of edges (bidirectional)
@@ -756,9 +759,9 @@ def get_derrida_arrays(
     graph.to_undirected()
 
     # run the model for a single time step for the various initial conditions
-    next_config = np.array(model.step(edges, tc.tensor(init_configs)), dtype=int)
+    next_configs = np.array(model.step(edges, tc.tensor(init_configs)), dtype=int)
     # copy the output as many times as required (for points_per_rho)
-    next_config_all = np.tile(next_config, ((max_ones_per_array-1)*points_per_rho,1))
+    next_config_all = np.tile(next_configs, (points_per_rho*num_rhos,1))
     # run the model for a single time step for all the defected initial conditions
     next_config_defect_all = np.array(model.step(edges, tc.tensor(init_configs_defect_all)), dtype=int)
 
