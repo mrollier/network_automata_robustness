@@ -771,6 +771,35 @@ def get_derrida_arrays(
 
     return input_defect_density, output_defect_density
 
+def calculate_derrida_coefficient(rho_t_array: NDArray, rho_tplus1_array: NDArray, cutoff_rho_t: float = 0.05) -> np.floating:
+    """
+    Calculate the Derrida coefficient for the given arrays of defect fractions at two consecutive time steps.
+
+    Parameters
+    ----------
+    rho_t_array : np.ndarray
+        Array of defect fractions at time step t.
+    rho_tplus1_array : np.ndarray
+        Array of defect fractions at time step t+1.
+    cutoff_rho_t : float, optional
+        Cutoff value for rho_t to consider in the calculation, by default 0.05 (1/20th of the full Derrida map).
+
+    Returns
+    -------
+    derrida_coefficient : float
+        Derrida coefficient.
+    """
+    # Find cutoff value for input density rho_t
+    if np.max(rho_t_array) < cutoff_rho_t:
+        raise ValueError(f"Maximum value of rho_t_array is less than the requested kwarg value `cutoff_rho_t`={cutoff_rho_t}.")
+    rho_t_array = rho_t_array[rho_t_array <= cutoff_rho_t]
+    rho_tplus1_array = rho_tplus1_array[:len(rho_t_array)]
+    # calculate slope using the least squares method from this subset of densities
+    derrida_coefficient = np.sum(rho_t_array * rho_tplus1_array) / np.sum(rho_t_array * rho_t_array)
+
+    # return Derrida coefficient. NOTE that different sources use different definitions
+    return derrida_coefficient
+
 def eca_has_constantJ(eca:int) -> bool:
     if not _is_eca(eca):
         raise Exception(f"ECA '{eca}' is not recognised as an elementary cellular automaton. Choose an integer from 0 to 255.")
