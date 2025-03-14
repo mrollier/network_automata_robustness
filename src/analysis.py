@@ -4,10 +4,14 @@
 import numpy as np
 import torch as tc
 import igraph as ig
-from typing import Union, Tuple, Optional, Sequence
+from typing import Union, Tuple, Optional, Sequence, List
 from scipy.special import comb
 from numpy.typing import NDArray
 import math
+
+# for spline and root finding
+from scipy.interpolate import CubicSpline
+from scipy.optimize import root_scalar
 
 # warnings and exceptions
 import warnings
@@ -410,6 +414,44 @@ def boolean_sens(
     BS = prefactor * summation
     return BS
 
+def average_metric_over_degrees(
+    resolution:int,
+    B_set:Union[NDArray[np.int_], Sequence[int]],
+    S_set:Union[NDArray[np.int_], Sequence[int]],
+    metric_function,
+    graph:ig.Graph
+) -> float:
+    """
+    A function that takes the weighted sum of a particular metric (HW or BS or ...) over all possible degrees in the graph.
+
+    Parameters
+    ----------
+    resolution : int
+        Positive integer indicating the resolution of the local update rule
+    B_set : list
+        list of integers corresponding to the indices of the activated density intervals in the B set
+    S_set : list
+        list of integers corresponding to the indices of the activated density intervals in the B set
+    metric_function : function
+        The function that calculates the metric of interest (e.g. HW or BS). Should take exactly four arguments: resolution, B_set, S_set, degree.
+    graph : igraph.Graph
+        Network (graph) used as the topology for the automaton. Will be interpreted as a undirected graph.
+
+    Returns
+    -------
+    id_sens_sens : float
+        Value ranging from 0 to 1, indicating low resp. high sensitivity.
+    """
+    # calculate degree distribution
+    degrees = graph.degree()
+    bins = range(1,max(degrees)+2)
+    degree_ns, _ = np.histogram(degrees, bins=bins)
+    degrees = list(bins[:-1])
+    # calculate weighted average
+    metric_per_degree = np.array([degree_n*metric_function(resolution, B_set, S_set, int(degree)) for degree_n, degree in zip(degree_ns, degrees)])
+    average = np.sum(metric_per_degree) / graph.vcount()
+    return average
+
 # Define a function that identifies equivalent update rule
 def return_equivalent_rule(
     resolution:int,
@@ -799,6 +841,70 @@ def calculate_derrida_coefficient(rho_t_array: NDArray, rho_tplus1_array: NDArra
 
     # return Derrida coefficient. NOTE that different sources use different definitions
     return derrida_coefficient
+
+def derrida_spline_and_roots(inputs: np.ndarray, outputs: np.ndarray, num_bins: int = 20) -> Tuple[CubicSpline, List[float]]:
+    """
+    Fit a cubic spline to Derrida plot data and find the roots where the spline intersects the diagonal.
+
+    Parameters
+    ----------
+    inputs : numpy.ndarray
+        Array of input values (x-coordinates) for the Derrida plot.
+    outputs : numpy.ndarray
+        Array of output values (y-coordinates) for the Derrida plot.
+    num_bins : int, optional
+        Number of bins to use for binning the data before fitting the spline. Default is 20.
+
+    Returns
+    -------
+    spline : scipy.interpolate.CubicSpline
+        Cubic spline fitted to the binned data.
+    roots : list of float
+        List of x-values where the spline intersects the diagonal (y = x).
+
+    Notes
+    -----
+    The function first sorts the input data and bins it into a specified number of bins. 
+    It then computes the median y-values in each bin and fits a cubic spline to these binned data points.
+    The spline is constrained to pass through the origin (0,0). The function then finds the roots of the 
+    equation spline(x) - x = 0, which correspond to the points where the spline intersects the diagonal.
+    """
+    # Sort data
+    sorted_indices = np.argsort(inputs)
+    x_sorted = inputs[sorted_indices]
+    y_sorted = outputs[sorted_indices]
+
+    # Bin the data and compute median y-values in each bin
+    bins = np.linspace(0, 1, num_bins)
+    digitized = np.digitize(x_sorted, bins)
+    x_binned = [x_sorted[digitized == i].mean() for i in range(1, num_bins) if len(x_sorted[digitized == i]) > 0]
+    y_binned = [np.median(y_sorted[digitized == i]) for i in range(1, num_bins) if len(y_sorted[digitized == i]) > 0]
+
+    # Ensure the spline passes through the origin by explicitly adding (0,0)
+    x_binned.insert(0, 0)  # Insert x = 0 at the beginning
+    y_binned.insert(0, 0)  # Insert y = 0 at the beginning
+
+    # Fit a cubic spline with natural boundary conditions (does not force a specific slope)
+    spline = CubicSpline(x_binned, y_binned, bc_type="natural")  # No clamping, just a natural spline
+
+    # Define function for finding roots: f(x) - x = 0
+    def diagonal_crossing(x):
+        return spline(x) - x
+
+    # Find all intersection points
+    x_fine = np.linspace(0, 1, 500)  # Fine grid for detecting sign changes
+    y_diff = spline(x_fine) - x_fine  # Compute f(x) - x
+
+    # Detect sign changes (indicating crossing points)
+    roots = []
+    for i in range(len(x_fine) - 1):
+        if y_diff[i] * y_diff[i + 1] < 0:  # Sign change means a root is between x_fine[i] and x_fine[i+1]
+            try:
+                root = root_scalar(diagonal_crossing, bracket=[x_fine[i], x_fine[i + 1]], method='brentq').root
+                roots.append(root)
+            except ValueError:
+                pass  # Skip if no valid root is found
+    return spline, roots
 
 def eca_has_constantJ(eca:int) -> bool:
     if not _is_eca(eca):
