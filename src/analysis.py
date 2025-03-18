@@ -326,9 +326,9 @@ def boolean_sens(
     S_set : list or numpy.ndarray
         list of integers corresponding to the indices of the activated density intervals in the B set
     degree : int
-        The degree of the node you want to calculate the Hamming weight for
+        The degree of the node you want to calculate the Boolean sensitivity for
     norm : bool
-        True by default. Maps the Hamming weight to a value from 0 to 1. 
+        True by default. Maps the Boolean sensitivity to a value from 0 to 1. 
     iso : bool
         True by default. Set to False if non-isomorphic density intervals are used in the LLNA definition.
 
