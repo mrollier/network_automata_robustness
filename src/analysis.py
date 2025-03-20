@@ -12,6 +12,7 @@ import math
 # for spline and root finding
 from scipy.interpolate import CubicSpline
 from scipy.optimize import root_scalar
+from scipy.stats import binom
 
 # warnings and exceptions
 import warnings
@@ -190,7 +191,7 @@ def hamming_weight(
     B_set : list
         list of integers corresponding to the indices of the activated density intervals in the B set
     S_set : list
-        list of integers corresponding to the indices of the activated density intervals in the B set
+        list of integers corresponding to the indices of the activated density intervals in the S set
     degree : int
         The degree of the node you want to calculate the Hamming weight for
     norm : bool
@@ -233,6 +234,57 @@ def hamming_weight(
         return HW_norm
     return int(HW)
 
+def mean_field_dens_propagation(
+    resolution: int,
+    B_set:Union[NDArray[np.int_], Sequence[int]],
+    S_set:Union[NDArray[np.int_], Sequence[int]],
+    current_dens:Union[float, int],
+    degree:int,
+    iso:bool=True
+) -> float:
+    """
+    Calculates the average density of a randomly chosen neighbourhood (with a particular degree) at time step 1,
+    after evolving according to the rule defined by the resolution, B set and S set,
+    if you know the average density over the entire network at the initial configuration (time step 0).
+    Note that we suppose that the initial coniguration is chosen randomly.
+
+    Parameters
+    ----------
+    resolution : int
+        Positive integer indicating the resolution of the local update rule
+    B_set : list
+        list of integers corresponding to the indices of the activated density intervals in the B set
+    S_set : list
+        list of integers corresponding to the indices of the activated density intervals in the S set
+    current_dens : float
+        The network-wide average density at the initial configuration.
+    degree : int
+        The degree of the node you want to calculate the expected neighbourhood density for
+    iso : bool
+        True by default. Set to False if non-isomorphic density intervals are used in the LLNA definition.
+
+    Returns
+    -------
+    next_dens : float
+        The expected value of the neighbourhood density in time step 1
+    """
+    # find all the possible rho_i values for this degree
+    rhos = np.linspace(0,1,degree+1)
+    # check in which interval they are situated
+    rho_intervals = _interval_encoding(resolution, rhos[np.newaxis,:], iso=iso)[0].argmax(axis=1)
+    # find what this outputs to
+    born_truthtable = np.array([int(rho in B_set) for rho in rho_intervals])
+    survive_truthtable = np.array([int(rho in S_set) for rho in rho_intervals])
+    # calculate the binomial probabilities for various sums q, based on the current average density
+    binom_q = binom.pmf(np.arange(degree+1), degree, current_dens)
+    # calculate the weighted born and survive truthtables (based on probability of finding the central node alive)
+    born_truthtable_weighted = born_truthtable * (1-current_dens)
+    survive_truthtable_weighted = survive_truthtable * current_dens
+    # sum over all possible sum values
+    next_dens = np.sum(binom_q *  (born_truthtable_weighted + survive_truthtable_weighted))
+    # return the next density and make sure it's between 0 and 1
+    return np.clip(next_dens, 0, 1)
+
 def nbh_sensitivity_naive(
     resolution: int,
     B_set:Union[NDArray[np.int_], Sequence[int]],
@@ -249,7 +301,7 @@ def nbh_sensitivity_naive(
     B_set : list or numpy.ndarray
         list of integers corresponding to the indices of the activated density intervals in the B set
     S_set : list or numpy.ndarray
-        list of integers corresponding to the indices of the activated density intervals in the B set
+        list of integers corresponding to the indices of the activated density intervals in the S set
 
     Returns
     -------
@@ -286,7 +338,7 @@ def id_sensitivity_naive(
     B_set : list
         list of integers corresponding to the indices of the activated density intervals in the B set
     S_set : list
-        list of integers corresponding to the indices of the activated density intervals in the B set
+        list of integers corresponding to the indices of the activated density intervals in the S set
 
     Returns
     -------
@@ -324,7 +376,7 @@ def boolean_sens(
     B_set : list or numpy.ndarray
         list of integers corresponding to the indices of the activated density intervals in the B set
     S_set : list or numpy.ndarray
-        list of integers corresponding to the indices of the activated density intervals in the B set
+        list of integers corresponding to the indices of the activated density intervals in the S set
     degree : int
         The degree of the node you want to calculate the Boolean sensitivity for
     norm : bool
@@ -431,7 +483,7 @@ def average_metric_over_degrees(
     B_set : list
         list of integers corresponding to the indices of the activated density intervals in the B set
     S_set : list
-        list of integers corresponding to the indices of the activated density intervals in the B set
+        list of integers corresponding to the indices of the activated density intervals in the S set
     metric_function : function
         The function that calculates the metric of interest (e.g. HW or BS). Should take exactly four arguments: resolution, B_set, S_set, degree.
     graph : igraph.Graph
@@ -469,14 +521,14 @@ def return_equivalent_rule(
     B_set : list or numpy.ndarray
         list of integers corresponding to the indices of the activated density intervals in the B set.
     S_set : list or numpy.ndarray
-        list of integers corresponding to the indices of the activated density intervals in the B set.
+        list of integers corresponding to the indices of the activated density intervals in the S set.
 
     Returns
     -------
     B_set_equiv : list or numpy.ndarray
         list of integers corresponding to the indices of the activated density intervals in the B set of the equivalent rule.
     S_set_equiv : list or numpy.ndarray
-        list of integers corresponding to the indices of the activated density intervals in the B set of the equivalent rule.
+        list of integers corresponding to the indices of the activated density intervals in the S set of the equivalent rule.
     """
     # make sure the sets are numpy.ndarray
     B_set = np.asarray(B_set, dtype=int)
@@ -957,6 +1009,8 @@ def _interval_encoding(resolution:int, rhos, iso=True):
             (belongs_to(rhos, k) | is_boundary(rhos, k)) for k in range(resolution)
         ], 2)
     else: # altered isomorphic case
+        if resolution % 2 == 0:
+            raise ValueError("Resolution must be an odd number if iso=True.")
         belongs_to_lower = lambda x, k: ((k < resolution/2) & (x >= k/resolution) & (x < (k+1)/resolution))
         belongs_to_middle = lambda x, k: ((k == (resolution-1)/2)  & (x >= k/resolution) & (x <= (k+1)/resolution))
         belongs_to_upper = lambda x, k: ((k >resolution/2) & (x > k/resolution) & (x <= (k+1)/resolution))
