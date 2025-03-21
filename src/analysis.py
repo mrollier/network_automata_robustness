@@ -119,7 +119,7 @@ def defect_diameter(
 ) -> Union[NDArray[np.int_] ,NDArray[np.floating]]:
     """
     Calculates the configuration-space interpretation of the Lyapunov exponent after T time steps.
-    This is defined by the diameter of the subgraph of all affected nodes, divided by T.
+    This is defined by the diameter of the subgraph of all affected nodes. If normalised, it is divided by the diameter of the original graph.
     The value is given for the perturbance of each of the nodes (in the order of the nodes in the graph object)
 
     Parameters
@@ -133,13 +133,13 @@ def defect_diameter(
     T : int
         The number of time steps over which the defect diameter is calculated and normalised
     norm : bool
-        Defaults to True. If False, the defect diameters are not normalised (divided by T).
+        Defaults to True. If False, the defect diameters are not normalised (divided by the diameter of the parent graph).
 
     Returns
     -------
     diameters : numpy.ndarray
         An array of length T with the defect diameters related to a defect in each of the N nodes.
-        If norm==False, the diameters are not normalised (divided by T).
+        If norm==False, the diameters are not normalised (divided by the diameter of the parent graph).
     """
     N = len(states)
 
@@ -148,7 +148,7 @@ def defect_diameter(
     edges = tc.tensor(graph.get_edgelist()).T
     graph.to_undirected()
 
-    # parallellise all possible defects
+    # parallellise all possible single defects
     states_original = np.tile(states, (N,1))
     states_perturbed = (states_original + np.diag(np.ones(N, dtype=int))) % 2
     # dimensions of states: [defect_index, time, node]
@@ -169,7 +169,7 @@ def defect_diameter(
         diameters += [diameter]
     diameters = np.array(diameters)
     if norm:
-        diameters = diameters/(T+1)
+        diameters = diameters/graph.diameter()
     return diameters
 
 def hamming_weight(
