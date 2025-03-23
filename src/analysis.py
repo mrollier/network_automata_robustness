@@ -12,13 +12,14 @@ import math
 # for spline and root finding
 from scipy.interpolate import CubicSpline
 from scipy.optimize import root_scalar
-from scipy.stats import binom
+from scipy.stats import binom, hypergeom
 
 # warnings and exceptions
 import warnings
 
 # particular packages
 from src.automata import LLNA
+from src.rules import _is_eca
 import cellpylib as cpl
 
 # %% utilitary functions
@@ -119,7 +120,7 @@ def defect_diameter(
 ) -> Union[NDArray[np.int_] ,NDArray[np.floating]]:
     """
     Calculates the configuration-space interpretation of the Lyapunov exponent after T time steps.
-    This is defined by the diameter of the subgraph of all affected nodes, divided by T.
+    This is defined by the diameter of the subgraph of all affected nodes. If normalised, it is divided by the diameter of the original graph.
     The value is given for the perturbance of each of the nodes (in the order of the nodes in the graph object)
 
     Parameters
@@ -133,13 +134,15 @@ def defect_diameter(
     T : int
         The number of time steps over which the defect diameter is calculated and normalised
     norm : bool
-        Defaults to True. If False, the defect diameters are not normalised (divided by T).
+        Defaults to True. If False, the defect diameters are not normalised (divided by the diameter of the parent graph).
 
     Returns
     -------
     diameters : numpy.ndarray
         An array of length T with the defect diameters related to a defect in each of the N nodes.
-        If norm==False, the diameters are not normalised (divided by T).
+        If norm==False, the diameters are not normalised (divided by the diameter of the parent graph).
+    
+    NOTE: this function turns out not to be terribly useful, actually.
     """
     N = len(states)
 
@@ -148,7 +151,7 @@ def defect_diameter(
     edges = tc.tensor(graph.get_edgelist()).T
     graph.to_undirected()
 
-    # parallellise all possible defects
+    # parallellise all possible single defects
     states_original = np.tile(states, (N,1))
     states_perturbed = (states_original + np.diag(np.ones(N, dtype=int))) % 2
     # dimensions of states: [defect_index, time, node]
@@ -169,7 +172,7 @@ def defect_diameter(
         diameters += [diameter]
     diameters = np.array(diameters)
     if norm:
-        diameters = diameters/(T+1)
+        diameters = diameters/graph.diameter()
     return diameters
 
 def hamming_weight(
@@ -238,10 +241,10 @@ def mean_field_dens_propagation(
     resolution: int,
     B_set:Union[NDArray[np.int_], Sequence[int]],
     S_set:Union[NDArray[np.int_], Sequence[int]],
-    current_dens:Union[float, int],
+    current_dens:Union[float, NDArray],
     degree:int,
     iso:bool=True
-) -> float:
+) -> NDArray:
     """
     Calculates the average density of a randomly chosen neighbourhood (with a particular degree) at time step 1,
     after evolving according to the rule defined by the resolution, B set and S set,
@@ -268,22 +271,146 @@ def mean_field_dens_propagation(
     next_dens : float
         The expected value of the neighbourhood density in time step 1
     """
+    # check that the input values make sense
+    if (degree < 1) or (degree > 1022):
+        raise ValueError(f"Degree {degree} not allowed. The degree must be a non-zero natural number smaller than 1023.")
+    if iso and resolution % 2 == 0:
+        raise ValueError(f"Resolution {resolution} is not possible when iso=True. Choose an odd positive integer.")
+    if (B_set and (np.max(B_set) >= resolution)) or (S_set and (np.max(S_set) >= resolution)):
+        raise ValueError(f"Resolution {resolution} is to small for the provided update intervals.")
+    current_dens = np.atleast_1d(current_dens)
+    if (np.min(current_dens) < 0) or (np.max(current_dens) > 1):
+        raise ValueError(f"Average state density must be between 0 and 1. Now the maximum is {np.max(current_dens)} and the minimum is {np.max(current_dens)}.")
+
     # find all the possible rho_i values for this degree
-    rhos = np.linspace(0,1,degree+1)
+    rhos = np.linspace(0, 1, degree + 1)
     # check in which interval they are situated
-    rho_intervals = _interval_encoding(resolution, rhos[np.newaxis,:], iso=iso)[0].argmax(axis=1)
+    rho_intervals = _interval_encoding(resolution, rhos[np.newaxis, :], iso=iso)[0].argmax(axis=1)
     # find what this outputs to
     born_truthtable = np.array([int(rho in B_set) for rho in rho_intervals])
     survive_truthtable = np.array([int(rho in S_set) for rho in rho_intervals])
     # calculate the binomial probabilities for various sums q, based on the current average density
-    binom_q = binom.pmf(np.arange(degree+1), degree, current_dens)
+    binom_q = binom.pmf(np.arange(degree + 1), degree, current_dens[:, np.newaxis])
     # calculate the weighted born and survive truthtables (based on probability of finding the central node alive)
-    born_truthtable_weighted = born_truthtable * (1-current_dens)
-    survive_truthtable_weighted = survive_truthtable * current_dens
+    born_truthtable_weighted = born_truthtable * (1 - current_dens)[:, np.newaxis]
+    survive_truthtable_weighted = survive_truthtable * current_dens[:, np.newaxis]
     # sum over all possible sum values
-    next_dens = np.sum(binom_q *  (born_truthtable_weighted + survive_truthtable_weighted))
+    next_dens = np.sum(binom_q * (born_truthtable_weighted + survive_truthtable_weighted), axis=1)
     # return the next density and make sure it's between 0 and 1
     return np.clip(next_dens, 0, 1)
+
+def derrida_map_analytical(
+    resolution:int,
+    B_set:Union[NDArray[np.int_], Sequence[int]],
+    S_set:Union[NDArray[np.int_], Sequence[int]],
+    delta0:Union[float, NDArray],
+    degree:int,
+    init_config_dens:float=0.5,
+    iso:bool=True
+) -> NDArray:
+    """
+    Calculate the analytical Derrida map for a defect of normalised Hamming weight d0, from the local update rule for a particular node degree.
+    There is no need for a LLNA object (so the calculation is generally faster).
+    NOTE: this defaults to iso=True right now.
+    TODO: this is very slow and should be massively optimised.
+
+    Parameters
+    ----------
+    resolution : int
+        Positive integer indicating the resolution of the local update rule.
+    B_set : list or numpy.ndarray
+        list of integers corresponding to the indices of the activated density intervals in the B set.
+    S_set : list or numpy.ndarray
+        list of integers corresponding to the indices of the activated density intervals in the B set.
+    degree : int
+        The degree of the node you want to calculate the Derrida map for.
+    delta0 : float
+        The normalised Hamming weight of the defect. Value between 0 and 1.
+    init_config_dens : float
+        The density of the initial configuration (before defect). Default is 0.5.
+    iso : bool
+        True by default. Set to False if non-isomorphic density intervals are used in the LLNA definition.
+
+    Returns
+    -------
+    delta1 : float
+        The Derrida map for this particular degree. Value between 0 and 1.
+    """
+    # check that the input values make sense
+    if (degree < 1) or (degree > 1022):
+        raise ValueError(f"Degree {degree} not allowed. The degree must be a non-zero natural number smaller than 1023.")
+    if iso and resolution % 2 == 0:
+        raise ValueError(f"Resolution {resolution} is not possible when iso=True. Choose an odd positive integer.")
+    if (B_set and (np.max(B_set) >= resolution)) or (S_set and (np.max(S_set) >= resolution)):
+        raise ValueError(f"Resolution {resolution} is to small for the provided update intervals.")
+    delta0 = np.atleast_1d(delta0)
+    if (np.min(delta0) < 0) or (np.max(delta0) > 1):
+        raise ValueError(f"Normalised Hamming weight delta0 must be between 0 and 1. Now the maximum is {np.max(delta0)} and the minimum is {np.max(delta0)}.")
+    if (init_config_dens < 0) or (init_config_dens > 1):
+        raise ValueError(f"Density rho must be between 0 and 1, not {init_config_dens}.")
+    
+    # define the big XOR function that is at the end of all the summations
+    def function_xor(
+        resolution,         # r
+        B_set,              # B
+        S_set,              # S
+        centre_state,       # s
+        num_living,         # q
+        centre_toggle,      # c
+        num_killer_toggles, # t
+        num_defects,        # d
+        degree   ,          # k
+        iso=True            # isomorphic interval encoding
+    ):
+        # but B_set and S_set in a list
+        B_and_S_set = [B_set, S_set]
+        # calculate the density interval for the default and the defect case
+        rho = num_living / degree
+        rho_defect = (num_living - 2*num_killer_toggles + num_defects) / degree
+        rho_interval = _interval_encoding(resolution, np.array([[rho]]), iso=iso)[0].argmax()
+        rho_defect_interval = _interval_encoding(resolution, np.array([[rho_defect]]), iso=iso)[0].argmax()
+        # calculate the default function response
+        B_or_S_set = B_and_S_set[centre_state]
+        default_output = int(rho_interval in B_or_S_set)
+        # calculate the defect function response
+        centre_defect = (centre_state + centre_toggle) % 2
+        B_or_S_set_defect = B_and_S_set[centre_defect]
+        defect_output = int(rho_defect_interval in B_or_S_set_defect)
+        # calculate whether they are the same and output the XOR
+        xor_output = int(default_output != defect_output)
+        return xor_output
+    
+    # define all relevant probabilities
+    def prob_centre_node_alive(centre_state, rho0):
+        return rho0**centre_state * (1-rho0)**(1-centre_state)
+    def prob_q_living_neighbours(num_living, degree, rho0):
+        return binom.pmf(num_living, degree, rho0)
+    def prob_centre_node_toggle(centre_toggle, delta0):
+        return delta0**centre_toggle * (1-delta0)**(1-centre_toggle)
+    def prob_d_toggles(num_defects, degree, delta0):
+        return binom.pmf(num_defects, degree, delta0)
+    def prob_killer_toggle(num_killer_toggles, degree, num_living, num_defects):
+        return hypergeom.pmf(num_killer_toggles, degree, num_living, num_defects)
+    
+    # sum over all the possible combinations
+    # TODO: this is coded pretty badly with all these loops ...
+    delta1 = np.zeros_like(delta0)
+    for centre_state in [0,1]:
+        prob1 = prob_centre_node_alive(centre_state, init_config_dens)
+        for num_living in range(degree+1):
+            prob2 = prob_q_living_neighbours(num_living, degree, init_config_dens)
+            for centre_toggle in [0,1]:
+                prob3 = prob_centre_node_toggle(centre_toggle, delta0)
+                for num_defects in range(degree+1):
+                    prob4 = prob_d_toggles(num_defects, degree, delta0)
+                    min_t = max(0, num_defects + num_living - degree)
+                    max_t = min(num_defects, num_living)
+                    for num_killer_toggles in range(min_t, max_t+1):
+                        prob5 = prob_killer_toggle(num_killer_toggles, degree, num_living, num_defects)
+                        function_output = function_xor(resolution, B_set, S_set, centre_state, num_living, centre_toggle, num_killer_toggles, num_defects, degree)
+                        value = prob1 * prob2 * prob3 * prob4 * prob5 * function_output
+                        delta1 += value
+    return np.clip(delta1, 0, 1)
 
 def nbh_sensitivity_naive(
     resolution: int,
@@ -379,7 +506,7 @@ def boolean_sens(
         list of integers corresponding to the indices of the activated density intervals in the S set
     degree : int
         The degree of the node you want to calculate the Boolean sensitivity for
-    norm : bool
+    norm_degree : bool
         True by default. Maps the Boolean sensitivity to a value from 0 to 1. 
     iso : bool
         True by default. Set to False if non-isomorphic density intervals are used in the LLNA definition.
@@ -430,7 +557,7 @@ def boolean_sens(
 
     # neighbourhood sensitivity for decreasing densitity
     def _nbh_sens_dec(resolution, B_set, S_set, si, degree, iso=True):
-        # find all possible densities except density 1 (which cannot increase)
+        # find all possible densities except density 0 (which cannot decrease)
         rhos = np.linspace(0, 1, degree+1)[1:]
         # find which interval these densities belong to
         rho_intervals = _interval_encoding(resolution, rhos[np.newaxis,:], iso=iso)[0].argmax(axis=1)
@@ -442,18 +569,19 @@ def boolean_sens(
         B_or_S_truthtable = np.array([int(rho in B_or_S_set) for rho in rho_intervals])
         B_or_S_truthtable_dec = np.array([int(rho_dec in B_or_S_set) for rho_dec in rho_dec_intervals])
         NS_dec = (B_or_S_truthtable ^ B_or_S_truthtable_dec)
-        # add a zero at the end and return
+        # add a zero at the start and return
         return np.append(0, NS_dec)
     
     # overall neighbourhood sensitivity
     def _nbh_sens(resolution, B_set, S_set, si, degree, iso=True):
-        sum_values = np.linspace(0, degree, degree+1)
+        # all possible q values
+        sum_values = np.arange(0, degree+1)
         NS_dec = _nbh_sens_dec(resolution, B_set, S_set, si, degree, iso=iso)
         NS_inc = _nbh_sens_inc(resolution, B_set, S_set, si, degree, iso=iso)
         return sum_values*NS_dec + (degree-sum_values)*NS_inc
     
     # use functions above to find BS
-    prefactor = 2**(-degree-1)
+    prefactor = 1/2**(degree+1)
     if norm_degree:
         prefactor /= (degree+1)
     summation = 0
@@ -503,50 +631,6 @@ def average_metric_over_degrees(
     metric_per_degree = np.array([degree_n*metric_function(resolution, B_set, S_set, int(degree)) for degree_n, degree in zip(degree_ns, degrees)])
     average = np.sum(metric_per_degree) / graph.vcount()
     return average
-
-# Define a function that identifies equivalent update rule
-def return_equivalent_rule(
-    resolution:int,
-    B_set:Union[NDArray[np.int_], Sequence[int]],
-    S_set:Union[NDArray[np.int_], Sequence[int]],
-    return_decimals:bool=False
-) -> Union[Tuple[NDArray[np.int_], NDArray[np.int_]], Tuple[int,int]]:
-    """
-    A function that returns the beta and sigma integer of the equivalent local update rule.
-
-    Parameters
-    ----------
-    resolution : int
-        Positive integer indicating the resolution of the local update rule.
-    B_set : list or numpy.ndarray
-        list of integers corresponding to the indices of the activated density intervals in the B set.
-    S_set : list or numpy.ndarray
-        list of integers corresponding to the indices of the activated density intervals in the S set.
-
-    Returns
-    -------
-    B_set_equiv : list or numpy.ndarray
-        list of integers corresponding to the indices of the activated density intervals in the B set of the equivalent rule.
-    S_set_equiv : list or numpy.ndarray
-        list of integers corresponding to the indices of the activated density intervals in the S set of the equivalent rule.
-    """
-    # make sure the sets are numpy.ndarray
-    B_set = np.asarray(B_set, dtype=int)
-    S_set = np.asarray(S_set, dtype=int)
-    # mirror the sets
-    B_set_mirror = resolution - 1 - B_set
-    S_set_mirror = resolution - 1 - S_set
-    # complement the sets
-    B_set_mirror_comp = np.setdiff1d(np.arange(resolution), B_set_mirror)
-    S_set_mirror_comp = np.setdiff1d(np.arange(resolution), S_set_mirror)
-    # switch up the sets
-    B_set_equiv = S_set_mirror_comp
-    S_set_equiv = B_set_mirror_comp
-    if not return_decimals:
-        return B_set_equiv, S_set_equiv
-    beta_equiv = int(np.sum([2**idx for idx in B_set_equiv]))
-    sigma_equiv = int(np.sum([2**idx for idx in S_set_equiv]))
-    return beta_equiv, sigma_equiv
 
 def calculate_Yt(
     graph:ig.Graph,
@@ -628,7 +712,7 @@ def lyapunov_spectrum_analytical(
         raise ValueError(f"The number of nodes must be a natural number. Got N={N}.")
     # find constants
     J = jacobian_ECA(rule, np.zeros(N), return_next=False)
-    triplet = J[1,0:3]
+    triplet = J[1][0:3]
     c0 = triplet[1]
     c1 = triplet[0]
     cN_1 = triplet[2]
@@ -649,128 +733,6 @@ def lyapunov_spectrum_analytical(
         finite_pct = round(len(nonzero_singular_values) / N * 100)
         return lyapunov_values, finite_pct
     return lyapunov_values
-
-def binary_indices(n: int) -> list[int]:
-    """
-    Returns a list of indices where bits are 1 in the binary representation of n.
-    """
-    return [i for i, bit in enumerate(bin(n)[:1:-1]) if bit == '1']
-
-def eca_as_binary(eca:int) -> str:
-    """
-    Returns the ECA as a binary number consisting of exactly 8 digits.
-    """
-    # check value of ECA
-    if not _is_eca(eca):
-        raise ValueError(f"The integer {eca} is not a valid ECA.")
-    # body
-    eca_binary = np.base_repr(eca, base=2)
-    eca_binary = '0'*(8-len(eca_binary)) + eca_binary
-    return eca_binary
-
-def lr_symmetric_eca(eca:int) -> int:
-    """
-    Calculates the ECA that is left-right symmetric to the ECA in the argument
-
-    Parameters
-    ----------
-    eca : int
-        A Wolfram rule, i.e. a natural number smaller than 256.
-    
-    Returns
-    -------
-    lr_eca : int
-        Another Wolfram rule, that is left-right symmetric to the one in the argument
-    """
-    # check value of ECA
-    if not _is_eca(eca):
-        raise ValueError(f"The integer {eca} is not a valid ECA.")
-    # body
-    eca_bin = eca_as_binary(eca)
-    lr_eca_bin = eca_bin[0] + eca_bin[4] + eca_bin[2] + eca_bin[6] + eca_bin[1] + eca_bin[5] + eca_bin[3] + eca_bin[7]
-    lr_eca = int(lr_eca_bin, base=2)
-    return lr_eca
-
-def bw_symmetric_eca(eca:int) -> int:
-    """
-    Calculates the ECA that is black-white symmetric to the ECA in the argument
-
-    Parameters
-    ----------
-    eca : int
-        A Wolfram rule, i.e. a natural number smaller than 256.
-    
-    Returns
-    -------
-    lr_eca : int
-        Another Wolfram rule, that is left-right symmetric to the one in the argument
-    """
-    # check value of ECA
-    if not _is_eca(eca):
-        raise ValueError(f"The integer {eca} is not a valid ECA.")
-    # body
-    eca_bin = eca_as_binary(eca)
-    inv_eca_bin = eca_bin[::-1]
-    bw_eca = 255 - int(inv_eca_bin, base=2)
-    return bw_eca
-
-def lp_class_dict() -> dict:
-    lp_dict = { "null": [0, 8, 32, 40, 64, 96, 128, 136, 160, 168, 192, 224, 234, 235, 238, 239, 248, 249, 250, 251, 252, 253, 254, 255], \
-                "fixed point": [2, 4, 10, 12, 13, 16, 24, 34, 36, 42, 44, 46, 48, 56, 57, 58, 66, 68, 69, 72, 76, 77, 78, 79, 80, 92, 93, 98, 99, 100, 104, 112, 114, 116, 130, 132, 138, 139, 140, 141, 144, 152, 162, 163, 164, 170, 171, 172, 174, 175, 176, 177, 184, 185, 186, 187, 188, 189, 190, 191, 194, 196, 197, 200, 202, 203, 204, 205, 206, 207, 208, 209, 216, 217, 218, 219, 220, 221, 222, 223, 226, 227, 228, 230, 231, 232, 233, 236, 237, 240, 241, 242, 243, 244, 245, 246, 247], \
-                "periodic": [1, 3, 5, 6, 7, 9, 11, 14, 15, 17, 19, 20, 21, 23, 25, 27, 28, 29, 31, 33, 35, 37, 38, 39, 41, 43, 47, 49, 50, 51, 52, 53, 55, 59, 61, 62, 63, 65, 67, 70, 71, 74, 81, 83, 84, 85, 87, 88, 91, 94, 95, 97, 103, 107, 108, 111, 113, 115, 117, 118, 119, 121, 123, 125, 127, 131, 133, 134, 142, 143, 145, 148, 155, 156, 157, 158, 159, 173, 178, 179, 198, 199, 201, 211, 212, 213, 214, 215, 229], \
-                "locally chaotic": [26, 73, 82, 109, 154, 166, 167, 180, 181, 210], \
-                "chaotic": [18, 22, 30, 45, 54, 60, 75, 86, 89, 90, 101, 102, 105, 106, 110, 120, 122, 124, 126, 129, 135, 137, 146, 147, 149, 150, 151, 153, 161, 165, 169, 182, 183, 193, 195, 225]}
-    return lp_dict
-
-def eca_to_llna(eca:int):
-    if not eca_is_llna(eca):
-        raise ValueError(f"Rule {eca} cannot be translated to an LLNA.")
-    eca_binary_reverse = eca_as_binary(eca)[::-1]
-    B_set = []
-    S_set = []
-    for interval, dead_bit in enumerate([0, 1, 5]):
-        if eca_binary_reverse[dead_bit]=='1':
-            B_set.append(interval)
-    for interval, live_bit in enumerate([2, 3, 7]):
-        if eca_binary_reverse[live_bit]=='1':
-            S_set.append(interval)
-    return B_set, S_set
-
-def eca_is_totalistic(eca:int) -> bool:
-    if not _is_eca(eca):
-        raise ValueError(f"ECA '{eca}' is not recognised as an elementary cellular automaton. Choose an integer from 0 to 255.")
-    # make list of all totalistic ECAs
-    totalistic_ecas = []
-    for b7 in [0,1]:
-        for b6 in [0,1]:
-            b5 = b6; b3 = b6
-            for b4 in [0,1]:
-                b2 = b4; b1=b4
-                for b0 in [0,1]:
-                    tot_eca = 2**7*b7 + 2**6*b6 + 2**5*b5 + 2**4*b4 + 2**3*b3 + 2**2*b2 + 2**1*b1 + 2**0*b0
-                    totalistic_ecas.append(tot_eca)
-    if eca in totalistic_ecas:
-        return True
-    return False
-
-def eca_is_llna(eca:int) -> bool:
-    if not _is_eca(eca):
-        raise ValueError(f"ECA '{eca}' is not recognised as an elementary cellular automaton. Choose an integer from 0 to 255.")
-    # make list of all totalistic ECAs
-    llna_ecas = []
-    for b7 in [0,1]:
-        for b6 in [0,1]:
-            b3 = b6
-            for b5 in [0,1]:
-                for b4 in [0,1]:
-                    b1=b4
-                    for b2 in [0,1]:
-                        for b0 in [0,1]:
-                            llna_eca = 2**7*b7 + 2**6*b6 + 2**5*b5 + 2**4*b4 + 2**3*b3 + 2**2*b2 + 2**1*b1 + 2**0*b0
-                            llna_ecas.append(llna_eca)
-    if eca in llna_ecas:
-        return True
-    return False
 
 def get_derrida_arrays(
     graph:ig.Graph,
@@ -933,8 +895,8 @@ def derrida_spline_and_roots(inputs: np.ndarray, outputs: np.ndarray, num_bins: 
     y_binned = [np.median(y_sorted[digitized == i]) for i in range(1, num_bins) if len(y_sorted[digitized == i]) > 0]
 
     # Ensure the spline passes through the origin by explicitly adding (0,0)
-    x_binned.insert(0, 0)  # Insert x = 0 at the beginning
-    y_binned.insert(0, 0)  # Insert y = 0 at the beginning
+    x_binned.insert(0, np.floating(0))  # Insert x = 0 at the beginning
+    y_binned.insert(0, np.floating(0))  # Insert y = 0 at the beginning
 
     # Fit a cubic spline with natural boundary conditions (does not force a specific slope)
     spline = CubicSpline(x_binned, y_binned, bc_type="natural")  # No clamping, just a natural spline
@@ -959,33 +921,9 @@ def derrida_spline_and_roots(inputs: np.ndarray, outputs: np.ndarray, num_bins: 
     return spline, roots
 
 def eca_has_constantJ(eca:int) -> bool:
+    # TODO: this is hard-coded for now.
     if not _is_eca(eca):
         raise Exception(f"ECA '{eca}' is not recognised as an elementary cellular automaton. Choose an integer from 0 to 255.")
-    # make list of all constant-Jacobian ECAs
-    # constantJ_ecas = []
-    # for b7 in [0,1]:
-    #     b5 = b7
-    #     for b6 in [0,1]:
-    #         b4 = b6
-    #         for b3 in [0,1]:
-    #             b1 = b3
-    #             for b2 in [0,1]:
-    #                 b0 = b2
-    #                 constantJ_eca = 2**7*b7 + 2**6*b6 + 2**5*b5 + 2**4*b4 + 2**3*b3 + 2**2*b2 + 2**1*b1 + 2**0*b0
-    #                 constantJ_ecas.append(constantJ_eca)
-    # for b7 in [0,1]:
-    #     b5 = 1-b7
-    #     for b6 in [0,1]:
-    #         b4 = 1-b6
-    #         for b3 in [0,1]:
-    #             b1 = 1-b3
-    #             for b2 in [0,1]:
-    #                 b0 = 1-b2
-    #                 constantJ_eca = 2**7*b7 + 2**6*b6 + 2**5*b5 + 2**4*b4 + 2**3*b3 + 2**2*b2 + 2**1*b1 + 2**0*b0
-    #                 constantJ_ecas.append(constantJ_eca)
-    # if eca in constantJ_ecas:
-    #     return True
-    # return False
     all_constantJ_rules = [0, 255, 85, 170, 51, 204, 102, 153, 15, 240, 90, 165, 60, 195, 105, 150]
     if eca not in all_constantJ_rules:
         return False
@@ -993,13 +931,6 @@ def eca_has_constantJ(eca:int) -> bool:
 
 
 #%% helper functions
-def _is_eca(eca:int):
-    # Check whether eca is a valid integer in [0, 255]
-    if eca < 0:
-        return False
-    if eca > 255:
-        return False
-    return True
 
 def _interval_encoding(resolution:int, rhos, iso=True):
     if not iso: # classic psuedo-isomorphic case
