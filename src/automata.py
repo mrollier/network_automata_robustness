@@ -82,7 +82,7 @@ class LLNA(tc.nn.Module):
 		==========
 		E   : long tensor of shape [2 x M], where M is the number of directed edges 
 		      (for undirected graphs, ensure the existance of both (vi, vj) and (vj, vi) in E)
-		ht  : float tensor of shape [L x N], where N and L are the number of nodes and initial configurations
+		ht  : float tensor of shape [L x N], where L is the number of initial configurations and N is the number of nodes
 		T   : number of steps to run the automaton
 		
 		==========
