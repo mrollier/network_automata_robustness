@@ -25,7 +25,8 @@ class LLNA(tc.nn.Module):
 		encode = lambda arr: sum(2**np.array(arr))
 		(x, y) = self.rule
 		if latex:
-			return f'$R_{{{self._resolution}}}B_{{{encode(x)}}}S_{{{encode(y)}}}$'
+			# return f'$R_{{{self._resolution}}}B_{{{encode(x)}}}S_{{{encode(y)}}}$'
+			return f'$\\phi^{{{self._resolution}}}_{{{encode(x)},{encode(y)}}}$'
 		return f'R{self._resolution}B{encode(x)}S{encode(y)}'
 	
 	@property
