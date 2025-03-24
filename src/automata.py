@@ -25,7 +25,8 @@ class LLNA(tc.nn.Module):
 		encode = lambda arr: sum(2**np.array(arr))
 		(x, y) = self.rule
 		if latex:
-			return f'$R_{{{self._resolution}}}B_{{{encode(x)}}}S_{{{encode(y)}}}$'
+			# return f'$R_{{{self._resolution}}}B_{{{encode(x)}}}S_{{{encode(y)}}}$'
+			return f'$\\phi^{{{self._resolution}}}_{{{encode(x)},{encode(y)}}}$'
 		return f'R{self._resolution}B{encode(x)}S{encode(y)}'
 	
 	@property
@@ -204,7 +205,7 @@ class LLNA(tc.nn.Module):
 			if plot_dist:
 				rho_dens_dist = np.array([comb(degree, k) for k in range(degree + 1)])
 				rho_dens_dist = rho_dens_dist / np.max(rho_dens_dist)
-				ax.scatter(rhos, rho_dens_dist, marker = 'o', edgecolors='black', facecolors='white', s=50, zorder=3)
+				ax.scatter(rhos, rho_dens_dist, marker = 'o', edgecolors='black', facecolors='white', s=50, zorder=3, clip_on=False)
 
 		# return
 		if return_both:
