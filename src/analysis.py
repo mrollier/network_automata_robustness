@@ -929,6 +929,21 @@ def eca_has_constantJ(eca:int) -> bool:
         return False
     return True
 
+def median_and_percentiles_over_ensemble(arrays, delta_t, lower_percentile=0.25, upper_percentile=0.75):
+    """
+    Simple function to find the convergence value of an ensemble of time series
+    """
+    if arrays.ndim != 2:
+        raise ValueError(f"The input array has {arrays.ndim} dimensions instead of 2.")
+    if (lower_percentile > 0.5) or (upper_percentile < 0.5):
+        raise ValueError("The median is not within the percentiles.")
+    final_timesteps = arrays[-delta_t:]
+    # take median over all values (no distinction between time and ensemble dimension)
+    median = np.median(final_timesteps)
+    lw_perc = np.quantile(final_timesteps, lower_percentile)
+    up_perc = np.quantile(final_timesteps, upper_percentile)
+    return median, lw_perc, up_perc
+
 
 #%% helper functions
 
