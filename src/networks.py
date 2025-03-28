@@ -32,9 +32,9 @@ def create_2d_torus_lattice(L, degree=8):
     return g
 
 def watts_strogatz_rewire(g, p):
+    """Rewire edges in a copy of graph g with probability p (Watts-Strogatz style)."""
     if not g.is_connected():
         raise ValueError("Input graph must be connected.")
-    """Rewire edges in a copy of graph g with probability p (Watts-Strogatz style)."""
     try_counter = 0
     max_counter = 10
     while True:
