@@ -488,7 +488,7 @@ def boolean_sens(
     B_set:Union[NDArray[np.int_], Sequence[int]],
     S_set:Union[NDArray[np.int_], Sequence[int]],
     degree:int,
-    norm_degree:bool=True,
+    norm_degree:bool=False,
     iso:bool=True
 ) -> float:
     """
@@ -507,7 +507,7 @@ def boolean_sens(
     degree : int
         The degree of the node you want to calculate the Boolean sensitivity for
     norm_degree : bool
-        True by default. Maps the Boolean sensitivity to a value from 0 to 1. 
+        False by default. Maps the Boolean sensitivity to a value from 0 to 1. Note that this is typically not desired (because then it no longer corresponds to the Derrida coefficient)
     iso : bool
         True by default. Set to False if non-isomorphic density intervals are used in the LLNA definition.
 
