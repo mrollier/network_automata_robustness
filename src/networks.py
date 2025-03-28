@@ -32,24 +32,32 @@ def create_2d_torus_lattice(L, degree=8):
     return g
 
 def watts_strogatz_rewire(g, p):
+    if not g.is_connected():
+        raise ValueError("Input graph must be connected.")
     """Rewire edges in a copy of graph g with probability p (Watts-Strogatz style)."""
-    g_copy = g.copy()  # Make a copy of the original graph
-    n = len(g_copy.vs)  # Number of vertices in the graph
-    edges_to_rewire = list(g_copy.get_edgelist())  # Get the list of all edges
-
-    for edge in edges_to_rewire:
-        if random.random() < p:  # With probability p, rewire the edge
-            source, target = edge
-            g_copy.delete_edges([edge])  # Remove the current edge
-            
-            # Avoid self-loops and existing edges
-            possible_targets = set(range(n)) - {source} - set(g_copy.neighbors(source))
-            if possible_targets:
-                new_target = random.choice(list(possible_targets))  # Choose a new target randomly
-                g_copy.add_edges([(source, new_target)])  # Add the new edge
-            else:
-                raise ValueError(f"No possible target for moving the edge from node {source}.")
-    return g_copy
+    try_counter = 0
+    max_counter = 10
+    while True:
+        try_counter += 1
+        g_copy = g.copy()  # Make a copy of the original graph
+        n = len(g_copy.vs)  # Number of vertices in the graph
+        edges_to_rewire = list(g_copy.get_edgelist())  # Get the list of all edges
+        for edge in edges_to_rewire:
+            if random.random() < p:  # With probability p, rewire the edge
+                source, target = edge
+                g_copy.delete_edges([edge])  # Remove the current edge
+                
+                # Avoid self-loops and existing edges
+                possible_targets = set(range(n)) - {source} - set(g_copy.neighbors(source))
+                if possible_targets:
+                    new_target = random.choice(list(possible_targets))  # Choose a new target randomly
+                    g_copy.add_edges([(source, new_target)])  # Add the new edge
+                else:
+                    raise ValueError(f"No possible target for moving the edge from node {source}.")
+        if g_copy.is_connected():
+            return g_copy
+        if try_counter == max_counter:
+            raise ValueError(f"It was not possible to construct a connected Watts-Strogatz graph.")
 
 #%% helper functions
 
