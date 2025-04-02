@@ -21,6 +21,25 @@ def return_life_like_dict():
                       "anneal" : (464, 488)}
     return life_like_dict
 
+def get_nonequiv_rules(resolution:int):
+    # make simple totalistic CA with radius 2
+    betas = range(2**resolution)
+    sigmas = range(2**resolution)
+    equiv_rule_list = []
+    nonequiv_rule_list = []
+    for beta in betas:
+        born_if = binary_indices(beta)
+        for sigma in sigmas:
+            if (beta, sigma) not in equiv_rule_list:
+                born_if = binary_indices(beta)
+                survive_if = binary_indices(sigma)
+                # add the equivalent rule to the list
+                beta_equiv, sigma_equiv = return_equivalent_rule(resolution, born_if, survive_if, return_decimals=True)
+                nonequiv_rule_list.append((beta, sigma))
+                if (beta, sigma) != (beta_equiv, sigma_equiv):
+                    equiv_rule_list.append((beta_equiv, sigma_equiv))
+    return nonequiv_rule_list
+
 # Define a function that identifies equivalent update rule
 def return_equivalent_rule(
     resolution:int,
