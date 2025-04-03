@@ -1,6 +1,7 @@
 import numpy as np
 from typing import Union, Tuple, Sequence
 from numpy.typing import NDArray
+from tqdm import tqdm
 
 def return_life_like_dict():
     """
@@ -21,13 +22,14 @@ def return_life_like_dict():
                       "anneal" : (464, 488)}
     return life_like_dict
 
-def get_nonequiv_rules(resolution:int):
-    # make simple totalistic CA with radius 2
+def get_nonequiv_rules(resolution:int, return_self_equiv=False):
+    # takes a long time for large resolutions. Some of these lists have been saved elsewhere for easy loading.
     betas = range(2**resolution)
     sigmas = range(2**resolution)
     equiv_rule_list = []
     nonequiv_rule_list = []
-    for beta in betas:
+    self_equiv_rule_list = []
+    for beta in tqdm(betas, total=2**resolution):
         born_if = binary_indices(beta)
         for sigma in sigmas:
             if (beta, sigma) not in equiv_rule_list:
@@ -38,6 +40,10 @@ def get_nonequiv_rules(resolution:int):
                 nonequiv_rule_list.append((beta, sigma))
                 if (beta, sigma) != (beta_equiv, sigma_equiv):
                     equiv_rule_list.append((beta_equiv, sigma_equiv))
+                else:
+                    self_equiv_rule_list.append((beta, sigma))
+    if return_self_equiv:
+        return nonequiv_rule_list, self_equiv_rule_list
     return nonequiv_rule_list
 
 # Define a function that identifies equivalent update rule
