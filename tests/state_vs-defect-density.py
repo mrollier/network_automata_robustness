@@ -1,3 +1,8 @@
+# %% LOAD PARSING AND LOGGING
+
+import argparse  # For parsing command-line arguments
+import logging   # For logging execution details
+
 # %% LOAD PACKAGES
 
 # standard preamble for the Notebooks I use
@@ -27,118 +32,137 @@ import h5py
 
 from src.automata import LLNA
 from src.simulation import *
-from src.rules import binary_indices, return_equivalent_rule, get_nonequiv_rules
+from src.rules import binary_indices, get_nonequiv_rules
 from src.networks import create_2d_torus_lattice, watts_strogatz_rewire
 from src.analysis import median_and_percentiles_over_ensemble
 
-%load_ext autoreload
-%autoreload 2
+# %load_ext autoreload
+# %autoreload 2
 
-# %% CREATE NETWORKS
+def parse_arguments():
+    """Set up and parse command-line arguments."""
+    parser = argparse.ArgumentParser(description="Simulate state vs defect density on various network types.")
+    parser.add_argument("--L", type=int, default=30, help="Grid size (L x L).")
+    parser.add_argument("--rewiring_prob", type=float, default=0.2, help="Rewiring probability for the small-world network.")
+    parser.add_argument("--degree", type=int, default=8, help="Degree for lattice model (Moore neighbourhood).")
+    parser.add_argument("--num_graphs", type=int, default=30, help="Number of graphs per type.")
+    parser.add_argument("--num_init_conf", type=int, default=30, help="Number of initial configurations per graph.")
+    parser.add_argument("--init_dens", type=float, default=0.5, help="Initial density of states.")
+    parser.add_argument("--T", type=int, default=100, help="Number of time steps for simulation.")
+    parser.add_argument("--delta_t", type=int, default=10, help="Interval for calculating percentiles.")
+    parser.add_argument("--output_file", type=str, default="state-median-vs-defect-median.h5", help="Output file name for saving results.")
+    parser.add_argument("--network_type", type=str, choices=["toroidal-lattice", "small-world", "random"], required=True, help="Type of network to simulate.")
+    parser.add_argument("--resolution", type=int, default=5, help="Resolution for the non-equivalent rules.")
+    return parser.parse_args()
 
-# PARAMETERS
-#####################################################################################################################
-L = 30                              # Grid size (L x L) WATCH OUT with values, becomes computationally expensive fast
-num_nodes = L**2
-rewiring_prob = 0.2                 # Rewiring probability for the small-world network
-degree = 8                          # degree for lattice model (Moore neighbourhood)
-num_edges = num_nodes * degree // 2 # number of undirected edges
-num_graphs_per_type = 30
-num_init_conf_per_graph = 30
-init_dens = 0.5
-T = 100
-delta_t = 10
-#####################################################################################################################
+def main():
+    # Parse arguments
+    args = parse_arguments()
 
-graph_names = ["Toroidal Lattice", f"Small World", "Random"]
+    # Configure logging
+    network_type = args.network_type
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        handlers=[
+            logging.FileHandler(f"simulation_{network_type}.log")#,
+            # logging.StreamHandler()
+        ]
+    )
 
-# Create toroidal lattice
-lattice_graph = create_2d_torus_lattice(L, degree=degree)
-lattice_graphs = [lattice_graph]*num_graphs_per_type
+    # Log the parsed arguments
+    logging.info("Parsed arguments:")
+    for arg, value in vars(args).items():
+        logging.info(f"  {arg}: {value}")
 
-# create small_world graphs. These are connected (see definition)
-small_world_graphs = [watts_strogatz_rewire(lattice_graph, rewiring_prob) for _ in range(num_graphs_per_type)]
+    # %% CREATE NETWORK
 
-# create connected random graphs
-random_graphs = []
-for _ in range(num_graphs_per_type):
-    while True:
-        random_graph = ig.Graph.Erdos_Renyi(n=num_nodes, m=num_edges)
-        if random_graph.is_connected():
-            random_graphs.append(random_graph)
-            break
+    # PARAMETERS
+    #####################################################################################################################
+    L = args.L
+    num_nodes = L**2
+    rewiring_prob = args.rewiring_prob
+    degree = args.degree
+    num_edges = num_nodes * degree // 2
+    num_graphs_per_type = args.num_graphs
+    num_init_conf_per_graph = args.num_init_conf
+    init_dens = args.init_dens
+    T = args.T
+    delta_t = args.delta_t
+    resolution = args.resolution
+    #####################################################################################################################
 
-# find edges
-lattice_edges = []
-for lattice_graph in lattice_graphs:
-    lattice_graph.to_directed()
-    lattice_edge = tc.tensor(lattice_graph.get_edgelist()).T
-    lattice_edges.append(lattice_edge)
-    lattice_graph.to_undirected()
+    logging.info("Simulation parameters initialized.")
+    logging.info(f"Grid size: {L}x{L}, Rewiring probability: {rewiring_prob}, Degree: {degree}")
+    logging.info(f"Number of graphs: {num_graphs_per_type}, Initial configurations per graph: {num_init_conf_per_graph}")
+    logging.info(f"Initial density: {init_dens}, Time steps: {T}, Delta t: {delta_t}")
+    logging.info(f"Selected network type: {network_type}")
+    logging.info(f"Resolution: {resolution}")
 
-small_world_edges = []
-for small_world_graph in small_world_graphs:
-    small_world_graph.to_directed()
-    small_world_edge = tc.tensor(small_world_graph.get_edgelist()).T
-    small_world_edges.append(small_world_edge)
-    small_world_graph.to_undirected()
+    # Create the selected network type
+    if network_type == "toroidal-lattice":
+        graph = create_2d_torus_lattice(L, degree=degree)
+        graphs = [graph] * num_graphs_per_type
+    elif network_type == "small-world":
+        base_graph = create_2d_torus_lattice(L, degree=degree)
+        graphs = [watts_strogatz_rewire(base_graph, rewiring_prob) for _ in range(num_graphs_per_type)]
+    elif network_type == "random":
+        graphs = []
+        for _ in range(num_graphs_per_type):
+            while True:
+                random_graph = ig.Graph.Erdos_Renyi(n=num_nodes, m=num_edges)
+                if random_graph.is_connected():
+                    graphs.append(random_graph)
+                    break
+    else:
+        raise ValueError(f"Invalid network type: {network_type}. Must be one of 'toroidal-lattice', 'small-world', or 'random'.")
 
-random_edges = []
-for random_graph in random_graphs:
-    random_graph.to_directed()
-    random_edge = tc.tensor(random_graph.get_edgelist()).T
-    random_edges.append(random_edge)
-    random_graph.to_undirected()
+    # Find edges
+    edges = []
+    for graph in graphs:
+        graph.to_directed()
+        edge = tc.tensor(graph.get_edgelist()).T
+        edges.append(edge)
+        graph.to_undirected()
 
-graphs_per_type = [lattice_graphs, small_world_graphs, random_graphs]
-edges_per_type = [lattice_edges, small_world_edges, random_edges]
+    # %% RUN OVER RULES
 
-# %% RUN OVER RULES
+    beta_sigma_list = get_nonequiv_rules(resolution)
 
-resolution = 5
-beta_sigma_list = get_nonequiv_rules(resolution)
+    def init_config_with_dens(N, dens):
+        # defines a random initial configuration with a fixed state density
+        s0 = np.zeros(N, dtype=int)
+        s0[:np.round(dens * N).astype(int)] = 1
+        np.random.shuffle(s0)
+        return s0
 
-def init_config_with_dens(N, dens):
-    # defines a random initial configuration with a fixed state density
-    s0 = np.zeros(N, dtype=int)
-    s0[:np.round(dens*N).astype(int)] = 1.
-    np.random.shuffle(s0)
-    return s0
-
-# open new lists. These will have dimensions [types][rules]
-state_medians_per_type = []
-state_Q1_per_type = []
-state_Q3_per_type = []
-defect_medians_per_type = []
-defect_Q1_per_type = []
-defect_Q3_per_type = []
-# loop over graph types
-for edges, graph_name in zip(edges_per_type, graph_names):
-    print(f"Working on {graph_name} network. Now running through the non-equivalent rules ...")
-    # open new lists
+    # open new lists. These will have dimensions [rules]
     state_medians_per_rule = []
-    state_Q1_per_rule = []
-    state_Q3_per_rule = []
+    state_q1_per_rule = []
+    state_q3_per_rule = []
     defect_medians_per_rule = []
-    defect_Q1_per_rule = []
-    defect_Q3_per_rule = []
+    defect_q1_per_rule = []
+    defect_q3_per_rule = []
+
+    logging.info(f"Running through the non-equivalent rules of resolution {resolution} for {network_type} network...")
     # loop over rules
-    for beta, sigma in tqdm(beta_sigma_list, total=len(beta_sigma_list)):
+    for i, (beta, sigma) in enumerate(beta_sigma_list):
+        logging.info(f"Processed {i}/{len(beta_sigma_list)} rules...")
         # initialise model
         B_set = binary_indices(beta)
         S_set = binary_indices(sigma)
         model = LLNA(resolution, B_set, S_set, iso=True)
         # get initial configurations
-        init_configs_array = init_config_with_dens(num_nodes*num_init_conf_per_graph*num_graphs_per_type, init_dens)
+        init_configs_array = init_config_with_dens(num_nodes * num_init_conf_per_graph * num_graphs_per_type, init_dens)
         init_configs_array = init_configs_array.reshape(num_graphs_per_type, num_init_conf_per_graph, num_nodes)
         # get initial defects
-        init_defects_array = np.eye(num_nodes, dtype=int)[np.random.choice(num_nodes, num_init_conf_per_graph*num_graphs_per_type, replace=False)]
+        init_defects_array = np.eye(num_nodes, dtype=int)[np.random.choice(num_nodes, num_init_conf_per_graph * num_graphs_per_type, replace=False)]
         init_defects_array = init_defects_array.reshape(num_graphs_per_type, num_init_conf_per_graph, num_nodes)
         # find defected initial configurations
         init_configs_with_defect_array = (init_configs_array + init_defects_array) % 2
         # open new arrays that will collect all time series
-        state_averages_stack = np.empty((0,T+1))
-        defect_averages_stack = np.empty((0,T+1))
+        state_averages_stack = np.empty((0, T + 1))
+        defect_averages_stack = np.empty((0, T + 1))
         # loop over graphs
         for edge, init_configs, init_configs_with_defect in zip(edges, init_configs_array, init_configs_with_defect_array):
             # evolve the configuration
@@ -152,50 +176,56 @@ for edges, graph_name in zip(edges_per_type, graph_names):
             state_averages_stack = np.vstack((state_averages_stack, state_averages))
             defect_averages_stack = np.vstack((defect_averages_stack, defect_averages))
         # get the median and IQR for the ensemble
-        state_median, state_Q1, state_Q3 = median_and_percentiles_over_ensemble(state_averages_stack, delta_t=delta_t)
-        defect_median, defect_Q1, defect_Q3 = median_and_percentiles_over_ensemble(defect_averages_stack, delta_t=delta_t)
+        state_median, state_q1, state_q3 = median_and_percentiles_over_ensemble(state_averages_stack, delta_t=delta_t)
+        defect_median, defect_q1, defect_q3 = median_and_percentiles_over_ensemble(defect_averages_stack, delta_t=delta_t)
         # append to lists
         state_medians_per_rule.append(state_median)
-        state_Q1_per_rule.append(state_Q1)
-        state_Q3_per_rule.append(state_Q3)
+        state_q1_per_rule.append(state_q1)
+        state_q3_per_rule.append(state_q3)
         defect_medians_per_rule.append(defect_median)
-        defect_Q1_per_rule.append(defect_Q1)
-        defect_Q3_per_rule.append(defect_Q3)
-    # append to lists
-    state_medians_per_type.append(state_medians_per_rule)
-    state_Q1_per_type.append(state_Q1_per_rule)
-    state_Q3_per_type.append(state_Q3_per_rule)
-    defect_medians_per_type.append(defect_medians_per_rule)
-    defect_Q1_per_type.append(defect_Q1_per_rule)
-    defect_Q3_per_type.append(defect_Q3_per_rule)
+        defect_q1_per_rule.append(defect_q1)
+        defect_q3_per_rule.append(defect_q3)
 
-# turn lists into numpy arrays
-state_medians_per_type = np.array(state_medians_per_type)
-state_Q1_per_type = np.array(state_Q1_per_type)
-state_Q3_per_type = np.array(state_Q3_per_type)
-defect_medians_per_type = np.array(defect_medians_per_type)
-defect_Q1_per_type = np.array(defect_Q1_per_type)
-defect_Q3_per_type = np.array(defect_Q3_per_type)
+    logging.info(f"Finished processing {network_type} network.")
 
-# %% SAVE FILES
+    # turn lists into numpy arrays
+    state_medians_per_rule = np.array(state_medians_per_rule)
+    state_q1_per_rule = np.array(state_q1_per_rule)
+    state_q3_per_rule = np.array(state_q3_per_rule)
+    defect_medians_per_rule = np.array(defect_medians_per_rule)
+    defect_q1_per_rule = np.array(defect_q1_per_rule)
+    defect_q3_per_rule = np.array(defect_q3_per_rule)
 
-# Saving to HDF5
-graph_names_h5 = ['toroidal-lattice', 'small-world', 'network']
+    # %% SAVE FILES
 
-with h5py.File('state-median-vs-defect-median.h5', 'w') as f:
-    for idx, graph_name_h5 in enumerate(graph_names_h5):
-        f.create_dataset(f'resolution{resolution}/{graph_name_h5}/state/median', data=state_medians_per_type[idx], compression='gzip')
-        f.create_dataset(f'resolution{resolution}/{graph_name_h5}/state/q1', data=state_Q1_per_type[idx], compression='gzip')
-        f.create_dataset(f'resolution{resolution}/{graph_name_h5}/state/q3', data=state_Q3_per_type[idx], compression='gzip')
-        f.create_dataset(f'resolution{resolution}/{graph_name_h5}/defect/median', data=defect_medians_per_type[idx], compression='gzip')
-        f.create_dataset(f'resolution{resolution}/{graph_name_h5}/defect/q1', data=defect_Q1_per_type[idx], compression='gzip')
-        f.create_dataset(f'resolution{resolution}/{graph_name_h5}/defect/q3', data=defect_Q3_per_type[idx], compression='gzip')
+    # Determine file mode based on existence
+    file_mode = 'a' if os.path.exists(args.output_file) else 'w'
+    logging.info(f"Saving results to {args.output_file} in {'append' if file_mode == 'a' else 'write'} mode...")
 
-    # You can even attach metadata
-    f[f'resolution{resolution}'].attrs['num_nodes'] = f'{L}x{L}'
-    f[f'resolution{resolution}'].attrs['rewiring_prob'] = f'{rewiring_prob}'
-    f[f'resolution{resolution}'].attrs['num_graphs_per_type'] = f'{num_graphs_per_type}'
-    f[f'resolution{resolution}'].attrs['num_init_conf_per_graph'] = f'{num_init_conf_per_graph}'
-    f[f'resolution{resolution}'].attrs['init_dens'] = f'{init_dens}'
-    f[f'resolution{resolution}'].attrs['T'] = f'{T}'
-    f[f'resolution{resolution}'].attrs['delta_t'] = f'{delta_t}'
+    with h5py.File(args.output_file, file_mode) as f:
+        group_path = f'resolution{resolution}/{network_type}'
+        if group_path in f:
+            logging.warning(f"Group {group_path} already exists in the file. Overwriting datasets...")
+            del f[group_path]  # Remove existing group to avoid conflicts
+        f.create_dataset(f'{group_path}/state/median', data=state_medians_per_rule, compression='gzip')
+        f.create_dataset(f'{group_path}/state/q1', data=state_q1_per_rule, compression='gzip')
+        f.create_dataset(f'{group_path}/state/q3', data=state_q3_per_rule, compression='gzip')
+        f.create_dataset(f'{group_path}/defect/median', data=defect_medians_per_rule, compression='gzip')
+        f.create_dataset(f'{group_path}/defect/q1', data=defect_q1_per_rule, compression='gzip')
+        f.create_dataset(f'{group_path}/defect/q3', data=defect_q3_per_rule, compression='gzip')
+
+        # Attach metadata if the resolution group is new
+        resolution_group = f[f'resolution{resolution}']
+        if not resolution_group.attrs:
+            resolution_group.attrs['num_nodes'] = f'{L}x{L}'
+            resolution_group.attrs['rewiring_prob'] = f'{rewiring_prob}'
+            resolution_group.attrs['num_graphs_per_type'] = f'{num_graphs_per_type}'
+            resolution_group.attrs['num_init_conf_per_graph'] = f'{num_init_conf_per_graph}'
+            resolution_group.attrs['init_dens'] = f'{init_dens}'
+            resolution_group.attrs['T'] = f'{T}'
+            resolution_group.attrs['delta_t'] = f'{delta_t}'
+
+    logging.info("Results saved successfully.")
+
+if __name__ == "__main__":
+    main()
