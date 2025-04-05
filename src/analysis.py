@@ -299,6 +299,39 @@ def mean_field_dens_propagation(
     # return the next density and make sure it's between 0 and 1
     return np.clip(next_dens, 0, 1)
 
+def mean_field_slope(resolution, B_set, S_set, degree, rho_star=0.5, iso=True):
+    # TODO this currently does not work well for rho_star 0 or rho_star 1 (division by zero)
+    # TODO: add documentation
+    # TODO: add numpy magic (right now it's slow)
+    if (degree < 1) or (degree > 1022):
+        raise ValueError(f"Degree {degree} not allowed. The degree must be a non-zero natural number smaller than 1023.")
+    if iso and resolution % 2 == 0:
+        raise ValueError(f"Resolution {resolution} is not possible when iso=True. Choose an odd positive integer.")
+    if (B_set and (np.max(B_set) >= resolution)) or (S_set and (np.max(S_set) >= resolution)):
+        raise ValueError(f"Resolution {resolution} is to small for the provided update intervals.")
+    if (rho_star < 0) or (rho_star > 1):
+        raise ValueError(f"Equilibrium state density `rho_star` must be between 0 and (not {rho_star}).")
+
+    # find all the possible rho_i values for this degree
+    rhos = np.linspace(0, 1, degree + 1)
+    # check in which interval they are situated
+    rho_intervals = _interval_encoding(resolution, rhos[np.newaxis, :], iso=iso)[0].argmax(axis=1)
+    # find binomium elements
+    binomium_factor = np.array([comb(degree, q) for q in range(0, degree+1)])
+    # find what this outputs to
+    born_truthtable = np.array([int(rho in B_set) for rho in rho_intervals])
+    survive_truthtable = np.array([int(rho in S_set) for rho in rho_intervals])
+    # calculate the binomial probabilities for various sums q, based on the current average density
+    sum_prefactor_born = np.array([rho_star**(q - 1) * (1 - rho_star)**(degree - q) * (q - rho_star * (1 + degree)) for q in range(degree + 1)])
+    sum_prefactor_survive = np.array([rho_star**q * (1 - rho_star)**(degree - q - 1) * (1 + q - rho_star * (1 + degree)) for q in range(degree + 1)])
+    # calculate the weighted born and survive truthtables (based on probability of finding the central node alive)
+    born_truthtable_weighted = born_truthtable * sum_prefactor_born
+    survive_truthtable_weighted = survive_truthtable * sum_prefactor_survive
+    # sum over all possible sum values
+    slope = np.sum(binomium_factor * (born_truthtable_weighted + survive_truthtable_weighted))
+    # return the next density and make sure it's between 0 and 1
+    return slope
+
 def derrida_map_analytical(
     resolution:int,
     B_set:Union[NDArray[np.int_], Sequence[int]],
@@ -489,6 +522,7 @@ def boolean_sens(
     S_set:Union[NDArray[np.int_], Sequence[int]],
     degree:int,
     norm_degree:bool=False,
+    current_dens:float=0.5,
     iso:bool=True
 ) -> float:
     """
@@ -580,16 +614,19 @@ def boolean_sens(
         NS_inc = _nbh_sens_inc(resolution, B_set, S_set, si, degree, iso=iso)
         return sum_values*NS_dec + (degree-sum_values)*NS_inc
     
+    # combinatorial elements
+    binom_q = binom.pmf(np.arange(degree + 1), degree, current_dens)
+    binom_s = [1-current_dens, current_dens]
+
     # use functions above to find BS
-    prefactor = 1/2**(degree+1)
+    prefactor = 1
     if norm_degree:
         prefactor /= (degree+1)
     summation = 0
-    configs_per_rho = np.array([comb(degree, k, exact=False) for k in range(degree + 1)])
     for si in [0,1]:
         IS = _id_sens(resolution, B_set, S_set, degree, iso=iso)
         NS = _nbh_sens(resolution, B_set, S_set, si, degree, iso=iso)
-        term = np.sum((IS + NS) * configs_per_rho)
+        term = np.sum((IS + NS) * binom_q * binom_s[si])
         summation += term
     BS = prefactor * summation
     return BS
