@@ -488,7 +488,7 @@ def boolean_sens(
     B_set:Union[NDArray[np.int_], Sequence[int]],
     S_set:Union[NDArray[np.int_], Sequence[int]],
     degree:int,
-    norm_degree:bool=True,
+    norm_degree:bool=False,
     iso:bool=True
 ) -> float:
     """
@@ -507,7 +507,7 @@ def boolean_sens(
     degree : int
         The degree of the node you want to calculate the Boolean sensitivity for
     norm_degree : bool
-        True by default. Maps the Boolean sensitivity to a value from 0 to 1. 
+        False by default. Maps the Boolean sensitivity to a value from 0 to 1. Note that this is typically not desired (because then it no longer corresponds to the Derrida coefficient)
     iso : bool
         True by default. Set to False if non-isomorphic density intervals are used in the LLNA definition.
 
@@ -928,6 +928,21 @@ def eca_has_constantJ(eca:int) -> bool:
     if eca not in all_constantJ_rules:
         return False
     return True
+
+def median_and_percentiles_over_ensemble(arrays, delta_t, lower_percentile=0.25, upper_percentile=0.75):
+    """
+    Simple function to find the convergence value of an ensemble of time series
+    """
+    if arrays.ndim != 2:
+        raise ValueError(f"The input array has {arrays.ndim} dimensions instead of 2.")
+    if (lower_percentile > 0.5) or (upper_percentile < 0.5):
+        raise ValueError("The median is not within the percentiles.")
+    final_timesteps = arrays[-delta_t:]
+    # take median over all values (no distinction between time and ensemble dimension)
+    median = np.median(final_timesteps)
+    lw_perc = np.quantile(final_timesteps, lower_percentile)
+    up_perc = np.quantile(final_timesteps, upper_percentile)
+    return median, lw_perc, up_perc
 
 
 #%% helper functions
