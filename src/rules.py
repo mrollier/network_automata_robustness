@@ -2,6 +2,7 @@ from __future__ import annotations
 import numpy as np
 from typing import Union, Tuple, Sequence
 from numpy.typing import NDArray
+from tqdm import tqdm
 
 def return_life_like_dict():
     """
@@ -21,6 +22,30 @@ def return_life_like_dict():
                       "morley" : (328, 52),
                       "anneal" : (464, 488)}
     return life_like_dict
+
+def get_nonequiv_rules(resolution:int, return_self_equiv=False):
+    # takes a long time for large resolutions. Some of these lists have been saved elsewhere for easy loading.
+    betas = range(2**resolution)
+    sigmas = range(2**resolution)
+    equiv_rule_list = []
+    nonequiv_rule_list = []
+    self_equiv_rule_list = []
+    for beta in tqdm(betas, total=2**resolution):
+        born_if = binary_indices(beta)
+        for sigma in sigmas:
+            if (beta, sigma) not in equiv_rule_list:
+                born_if = binary_indices(beta)
+                survive_if = binary_indices(sigma)
+                # add the equivalent rule to the list
+                beta_equiv, sigma_equiv = return_equivalent_rule(resolution, born_if, survive_if, return_decimals=True)
+                nonequiv_rule_list.append((beta, sigma))
+                if (beta, sigma) != (beta_equiv, sigma_equiv):
+                    equiv_rule_list.append((beta_equiv, sigma_equiv))
+                else:
+                    self_equiv_rule_list.append((beta, sigma))
+    if return_self_equiv:
+        return nonequiv_rule_list, self_equiv_rule_list
+    return nonequiv_rule_list
 
 # Define a function that identifies equivalent update rule
 def return_equivalent_rule(
