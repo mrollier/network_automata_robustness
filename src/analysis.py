@@ -223,7 +223,7 @@ def hamming_weight(
     expected_sum = 2**degree
     configs_per_rho *= expected_sum / np.sum(configs_per_rho)
     # make truthtable for resp. dead and living central nodes
-    rho_intervals = _interval_encoding(resolution, rhos[np.newaxis,:], iso=True)[0].argmax(axis=1)
+    rho_intervals = _interval_encoding(resolution, rhos[np.newaxis,:], iso=iso)[0].argmax(axis=1)
     born_truthtable = np.array([(rho in B_set) for rho in rho_intervals])
     survive_truthtable = np.array([(rho in S_set) for rho in rho_intervals])
     # weighted sum of all truthtable outputs
