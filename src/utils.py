@@ -2,21 +2,21 @@ from matplotlib.colors import ListedColormap
 
 def get_ugent_colors_dict():
     ugent_colors = {
-    'UGent Blue': '#1E64C8',
-    'UGent Yellow': '#FFD200',
-    'White': '#FFFFFF',
-    'Black': '#000000',
-    'LW': '#F1A42B',  # Faculty of Arts and Philosophy
-    'RE': '#DC4E28',  # Faculty of Law and Criminology
-    'WE': '#2D8CA8',  # Faculty of Sciences
-    'GE': '#E85E71',  # Faculty of Medicine and Health Sciences
-    'EA': '#8BBEE8',  # Faculty of Engineering and Architecture
-    'EB': '#AEB050',  # Faculty of Economics and Business Administration
-    'DI': '#825491',  # Faculty of Veterinary Medicine
-    'PP': '#FB7E3A',  # Faculty of Psychology and Educational Sciences
-    'BW': '#27ABAD',  # Faculty of Bioscience Engineering
-    'FW': '#BE5190',  # Faculty of Pharmaceutical Sciences
-    'PS': '#71A860'   # Faculty of Political and Social Sciences
+    'ugent_blue': '#1E64C8',
+    'ugent_yellow': '#FFD200',
+    'ugent_white': '#FFFFFF',
+    'ugent_black': '#000000',
+    'lw_yellow': '#F1A42B',     # Faculty of Arts and Philosophy
+    're_red': '#DC4E28',        # Faculty of Law and Criminology
+    'we_aqua': '#2D8CA8',       # Faculty of Sciences
+    'ge_pink': '#E85E71',       # Faculty of Medicine and Health Sciences
+    'ea_blue': '#8BBEE8',       # Faculty of Engineering and Architecture
+    'eb_green': '#AEB050',      # Faculty of Economics and Business Administration
+    'di_purple': '#825491',     # Faculty of Veterinary Medicine
+    'pp_orange': '#FB7E3A',     # Faculty of Psychology and Educational Sciences
+    'bw_turquoise': '#27ABAD',  # Faculty of Bioscience Engineering
+    'fw_purple': '#BE5190',     # Faculty of Pharmaceutical Sciences
+    'ps_green': '#71A860'       # Faculty of Political and Social Sciences
     }
     return ugent_colors
 
