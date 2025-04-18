@@ -981,6 +981,75 @@ def median_and_percentiles_over_ensemble(arrays, delta_t, lower_percentile=0.25,
     up_perc = np.quantile(final_timesteps, upper_percentile)
     return median, lw_perc, up_perc
 
+def switch_life_to_higher_node_property_values(node_property_values, init_config, number_of_switches, kill_low_values=True):
+    """
+    TODO: add docstring
+    """
+    if number_of_switches<0:
+        raise ValueError(f"The number of switches must be a nutural number. Not {number_of_switches}.")
+    # get all values of this metric
+    num_nodes = len(init_config)
+    if len(node_property_values) != num_nodes:
+        raise ValueError(f"The number of nodes and the number of initial states do not match.")
+    if number_of_switches > num_nodes//2:
+        raise ValueError(f"You cannot switch places of more than half of the nodes.")
+    default_value = 0
+    if not kill_low_values:
+        default_value = 1
+
+    # get the indices of all nodes sorted by the node property
+    sorted_node_indices = np.argsort(node_property_values)
+    sorted_values = node_property_values[sorted_node_indices]
+    # find unique values
+    unique_values = np.unique(node_property_values)
+    # if there not all values are unique, randomize the order within each subgroup with the same node property value
+    if len(unique_values) != num_nodes:
+        # Randomize within groups (to avoid other correlations)
+        shuffled_sorted_node_indices = np.empty_like(sorted_node_indices)
+        start = 0
+        for unique_value in unique_values:
+            # find where the indices correspond to the current node property value
+            val_indices = np.where(sorted_values == unique_value)[0]
+            # get the subarray of values coresponding to this value
+            group = sorted_node_indices[val_indices]
+            # randomise the group
+            np.random.shuffle(group)
+            # glue the pieces back together
+            shuffled_sorted_node_indices[start:start + len(group)] = group
+            start += len(group)
+        # order the initial configuration according to the shuffled value-sorted indices
+        init_config_shuffle_ordered = init_config[shuffled_sorted_node_indices]
+    else:
+        shuffled_sorted_node_indices = sorted_node_indices
+        init_config_shuffle_ordered = init_config[shuffled_sorted_node_indices]
+        
+    # find the shuffled indices with low node property whose node is alive and kill 'em dead (by default)
+    indices_where_alive = np.where(init_config_shuffle_ordered==1-default_value)[0][:number_of_switches]
+    init_config_shuffle_ordered[indices_where_alive] = default_value-0
+    # same for shuffled indices with high node property of dead nodes that are brought to life (by default)
+    indices_where_dead  = np.where(init_config_shuffle_ordered==default_value-0)[0]
+    number_of_dead = len(indices_where_dead)
+    indices_where_dead = indices_where_dead[(number_of_dead-number_of_switches):]
+    init_config_shuffle_ordered[indices_where_dead] = 1-default_value
+    # undo the ordering
+    init_config_switched = init_config_shuffle_ordered[np.argsort(shuffled_sorted_node_indices)]
+    return init_config_switched
+
+def init_config_with_dens(N, dens):
+    """
+    Initialize a configuration array with a given density of ones.
+
+    Parameters:
+    N (int): The size of the array.
+    dens (float): The density of ones in the array (between 0 and 1).
+
+    Returns:
+    numpy.ndarray: A shuffled array of size N with the specified density of ones.
+    """
+    s0 = np.zeros(N, dtype=int)
+    s0[:np.round(dens*N).astype(int)] = 1.
+    np.random.shuffle(s0)
+    return s0
 
 #%% helper functions
 
