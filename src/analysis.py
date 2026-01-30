@@ -981,10 +981,46 @@ def median_and_percentiles_over_ensemble(arrays, delta_t, lower_percentile=0.25,
     up_perc = np.quantile(final_timesteps, upper_percentile)
     return median, lw_perc, up_perc
 
-def switch_life_to_higher_node_property_values(node_property_values, init_config, number_of_switches, kill_low_values=True):
+def switch_life_to_higher_node_property_values(node_property_values,
+                                               init_config,
+                                               number_of_switches,
+                                               kill_low_values=True,
+                                               random_seed=None,
+                                               return_sorted_values=False):
     """
-    TODO: add docstring
+    Modifies an initial configuration by switching the states of nodes based on their property values.
+    By default, nodes with low property values that are alive are set to dead, while nodes with high 
+    property values that are dead are set to alive. The total number of alive nodes remains constant.
+
+    Parameters
+    ----------
+    node_property_values : numpy.ndarray
+        Array containing the property value for each node (e.g., degree, centrality). Must have the 
+        same length as init_config.
+    init_config : numpy.ndarray
+        Initial configuration array with binary states (0 or 1) for each node.
+    number_of_switches : int
+        Number of nodes to switch from alive to dead (low property values) and from dead to alive 
+        (high property values). Must be a non-negative integer not exceeding half the number of nodes.
+    kill_low_values : bool
+        Defaults to True. If True, nodes with low property values are set to dead (0) and nodes with 
+        high property values are set to alive (1). If False, the behavior is reversed.
+    random_seed : int, optional
+        Random seed for reproducibility of the shuffling process. If None (default), the random 
+        state is not modified.
+
+    Returns
+    -------
+    init_config_switched : numpy.ndarray
+        Modified configuration array with switched node states based on property values.
+
+    Notes
+    -----
+    When multiple nodes share the same property value, their order is randomized within that group 
+    to avoid introducing spurious correlations.
     """
+    if random_seed is not None:
+        np.random.seed(random_seed)
     if number_of_switches<0:
         raise ValueError(f"The number of switches must be a nutural number. Not {number_of_switches}.")
     # get all values of this metric
@@ -1033,6 +1069,10 @@ def switch_life_to_higher_node_property_values(node_property_values, init_config
     init_config_shuffle_ordered[indices_where_dead] = 1-default_value
     # undo the ordering
     init_config_switched = init_config_shuffle_ordered[np.argsort(shuffled_sorted_node_indices)]
+
+    if return_sorted_values:
+        sorted_values = node_property_values[shuffled_sorted_node_indices]
+        return init_config_switched, sorted_values
     return init_config_switched
 
 def init_config_with_dens(N, dens):
