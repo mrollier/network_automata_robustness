@@ -249,7 +249,7 @@ def mean_field_dens_propagation(
     Calculates the average density of a randomly chosen neighbourhood (with a particular degree) at time step 1,
     after evolving according to the rule defined by the resolution, B set and S set,
     if you know the average density over the entire network at the initial configuration (time step 0).
-    Note that we suppose that the initial coniguration is chosen randomly.
+    Note that we suppose that the initial configuration is chosen randomly.
 
     Parameters
     ----------
