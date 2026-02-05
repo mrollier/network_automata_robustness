@@ -3,3 +3,6 @@ figures
 .ipynb_checkpoints
 miniconda.sh
 presentation/CompleNet2025/data
+manuscript/data/impact_analysis/graphs
+manuscript/data/impact_analysis/configs
+.gitignore
