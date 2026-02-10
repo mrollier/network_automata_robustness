@@ -1091,6 +1091,13 @@ def init_config_with_dens(N, dens):
     np.random.shuffle(s0)
     return s0
 
+def shannon_entropy(configs):
+    p_ones = np.mean(configs, axis=2)
+    p_zeros = 1 - p_ones
+    # tiny value to avoid log(0)
+    shannon = - (p_ones * np.log2(p_ones + 1e-10) + p_zeros * np.log2(p_zeros + 1e-10))
+    return shannon
+
 #%% helper functions
 
 def _interval_encoding(resolution:int, rhos, iso=True):
