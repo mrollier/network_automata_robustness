@@ -2,7 +2,7 @@ import igraph as ig
 import random
 
 def create_2d_torus_lattice(L, degree=8):
-    """Create a 2D torus lattice with degree 8 or 4."""
+    """Create a 2D torus lattice with degree 4, 8, or 12."""
     g = ig.Graph()
     n = L * L
     g.add_vertices(n)
@@ -22,8 +22,18 @@ def create_2d_torus_lattice(L, degree=8):
                 neighbors = [
                     (x+1, y), (x-1, y), (x, y+1), (x, y-1)
                 ]
+            elif degree == 12:
+                # 12 neighbors (Manhattan distance ≤ 2)
+                neighbors = [
+                    # Distance 1 (4 neighbors)
+                    (x+1, y), (x-1, y), (x, y+1), (x, y-1),
+                    # Distance 2 (8 neighbors)
+                    (x+2, y), (x-2, y), (x, y+2), (x, y-2),
+                    (x+1, y+1), (x-1, y-1), (x+1, y-1), (x-1, y+1)
+                ]
             else:
-                raise ValueError("Degree must be either 4 (von Neumann) or 8 (Moore).")
+                raise ValueError("Degree must be 4, 8, or 12.")
+            
             for nx, ny in neighbors:
                 j = _node_index(nx, ny, L)
                 if i < j:  # avoid double-adding edges
