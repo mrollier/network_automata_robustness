@@ -75,6 +75,46 @@ class LLNA(tc.nn.Module):
 		if self.callback is not None:
 			self.callback({ 'E':E, 'h':h, 'p':p, 'R':R, 'b':b, 's':s })
 		return (b + s)
+
+	def _interval_condition(self, p:tc.Tensor, k:int) -> tc.Tensor:
+		"""Returns boolean mask (same shape as p) for whether p falls in interval k."""
+		if not self._iso:
+			belongs_to  = (k <= self._resolution * p) & (self._resolution * p < k + 1)
+			is_boundary = (k == self._resolution - 1) & (p == 1)
+			return belongs_to | is_boundary
+		else:
+			belongs_to_lower  = (k <  self._resolution / 2) & (p >= k / self._resolution) & (p <  (k+1) / self._resolution)
+			belongs_to_middle = (k == (self._resolution-1) / 2) & (p >= k / self._resolution) & (p <= (k+1) / self._resolution)
+			belongs_to_upper  = (k >  self._resolution / 2) & (p >  k / self._resolution) & (p <= (k+1) / self._resolution)
+			return belongs_to_lower | belongs_to_middle | belongs_to_upper
+
+	def step_lowmem(self, E:tc.Tensor, h:tc.Tensor):
+		"""Memory-efficient step: avoids materialising the (L, N, resolution) R tensor.
+
+		Instead of computing R = interval_encoding(p) and then R @ _x / R @ _y,
+		this directly OR-s the interval conditions for active birth/survival intervals,
+		yielding a single (L, N) boolean tensor — saving a factor of `resolution` in RAM.
+		"""
+		h = tc.atleast_2d(h)
+		p = self.conv_gnn(h.T, E).T
+
+		# indices of active birth and survival intervals
+		active_x = self._x.squeeze().bool()   # (resolution,)
+		active_y = self._y.squeeze().bool()
+
+		# accumulate birth / survival conditions without forming R
+		b_cond = tc.zeros_like(p, dtype=tc.bool)
+		s_cond = tc.zeros_like(p, dtype=tc.bool)
+		for k in range(self._resolution):
+			mask = self._interval_condition(p, k)   # (L, N) bool
+			if active_x[k]:
+				b_cond = b_cond | mask
+			if active_y[k]:
+				s_cond = s_cond | mask
+
+		b = b_cond.float() * (1 - h)
+		s = s_cond.float() * h
+		return b + s
 	
 	def forward(self, E:tc.Tensor, ht:tc.Tensor, T:int=1):
 		"""
