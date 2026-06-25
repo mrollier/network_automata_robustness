@@ -1,0 +1,425 @@
+% OPEN QUESTIONS AND REMARKS
+% 1. linear CAs with periodic boundary conditions can cancel out
+% if the grid is a power of two. This is either a problem or a feature.
+% Can we recover this from the analytical Lyapunov spectrum?
+
+\documentclass[a4paper,fleqn]{cas-dc}
+
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{makecell}
+
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+\begin{document}
+
+\let\WriteBookmarks\relax
+
+\shorttitle{Exact Lyapunov spectra of affine cellular automata}
+\shortauthors{M.~Rollier and J.~M.~Baetens}
+
+\title[mode=title]{Exact Lyapunov spectra of affine cellular automata and the parity rule on networks}
+
+\author[ugent,usp]{Michiel Rollier}[orcid=0000-0001-8467-734X]
+\cormark[1]
+\ead{michiel.rollier@ugent.be}
+\credit{Conceptualization, Methodology, Software, Formal analysis, Validation,
+Visualization, Writing -- original draft}
+
+\author[ugent]{Jan M.~Baetens}[orcid=0000-0003-4084-9992]
+\credit{Funding Acquisition, Supervision, Writing -- review \& editing}
+
+\affiliation[ugent]{organization={BionamiX, Dept.~of Data Analysis and
+Mathematical Modelling, Ghent University},
+            addressline={Coupure Links, 653},
+            city={Ghent},
+            postcode={9000},
+            country={Belgium}}
+
+\affiliation[usp]{organization={S\~{a}o Carlos Institute of Physics, University of S\~{a}o Paulo},
+            addressline={Av.~Trab.~S\~{a}o Carlense, 400},
+            city={S\~{a}o Carlos},
+            postcode={13566-590},
+            country={Brazil}}
+
+\cortext[cor1]{Corresponding author.}
+
+\begin{abstract}
+The Lyapunov exponent quantifies the sensitivity of a dynamical system to perturbations, and the full Lyapunov spectrum extends this to every orthogonal direction in tangent space. For cellular automata the spectrum is almost always approximated numerically, and the approximation is delicate. We show that the affine rules, those whose update is a \textsc{xor} of a subset of the inputs together with a constant, admit an exact Lyapunov spectrum. An affine rule has a configuration-independent Boolean Jacobian, so the spectrum reduces to the logarithms of the singular values of a single constant matrix, with no simulation and no limit involved. Two cases carry a closed form. For an affine cellular automaton on a periodic lattice the Jacobian is a multilevel circulant matrix, and the spectrum is the discrete Fourier transform of the rule's gradient stencil, valid in any spatial dimension. For the parity rule on an arbitrary graph the Jacobian is the adjacency matrix itself, so the Lyapunov spectrum is the logarithm of the absolute adjacency spectrum, and the maximal exponent is the logarithm of the spectral radius. The long-time amplitude of a single-site perturbation then scales with the eigenvector centrality of the seeded node. Reading the periodic lattice as the Cayley graph of an abelian group unifies the two cases. Because they are exact, the affine spectra also serve as benchmarks: they reveal numerical artefacts in previously reported spectra and turn the informal correspondence between spectral radius and dynamical sensitivity into an exact identity.
+\end{abstract}
+
+\begin{highlights}
+    \item Affine rules have a configuration-independent Boolean Jacobian, so their Lyapunov spectrum is exact
+    \item The spectrum is the log singular values of one constant matrix, with no simulation and no limit
+    \item On periodic lattices it is the discrete Fourier transform of the rule's gradient stencil
+    \item For the parity rule on any graph it is the logarithm of the absolute adjacency spectrum
+    \item The long-time amplitude of a single-site perturbation scales with the seeded node's eigenvector centrality
+\end{highlights}
+
+\begin{keywords}
+cellular automata \sep Lyapunov spectrum \sep affine rules \sep
+Boolean Jacobian \sep network automata \sep eigenvector centrality
+\end{keywords}
+
+\maketitle
+
+% ============================================================
+\section{Introduction}
+\label{sec:intro}
+
+The Lyapunov exponent measures how fast nearby trajectories of a dynamical system separate, and a positive exponent is the usual signature of chaotic behaviour. For continuous systems the notion is classical, and the full spectrum of exponents, one per orthogonal direction in tangent space, is a standard descriptor of stability \cite{eckmann1985ergodic}. For cellular automata (CAs) the situation is less settled, because the state space is discrete and a derivative of the local update rule is not available in the ordinary sense \cite{rollier2025comprehensive}. Two routes have been taken. The symbolic-dynamics route defines left and right exponents through the shift map on bi-infinite configurations and relates them to entropy \cite{shereshevsky1992lyapunov,tisseur2000cellular}. The damage-spreading route, which we follow here, replaces the derivative by the Boolean derivative of Vichniac \cite{vichniac1990boolean} and tracks the growth of a perturbation through the resulting Boolean Jacobian \cite{bagnoli1992damage,bagnoli1999synchronization}. This second route leads naturally to a Lyapunov spectrum for CAs and for network automata (NAs) \cite{baetens2016stability,baetens2018lyapunov,vispoel2024damage}.
+
+Computing such a spectrum is, however, numerically demanding. The spectrum is read from the singular values of a long product of Jacobians, and calculating these Jacobians generally requires the exact evolution of the state vectors over subsequent timesteps. Making matters worse, the ratio between the largest and the smallest of these singular values grows exponentially with the number of timesteps. Direct multiplication therefore loses the slower-growing directions to floating-point error, and a stable approximation requires repeated re-orthonormalisation, as in the algorithm of Benettin et al.~\cite{benettin1980lyapunov1,benettin1980lyapunov2}.
+
+In this paper we show that a particular subclass of Boolean synchronous deterministic local update rules escapes these difficulties altogether. This subclass consists of rules whose Jacobian does not depend on the configuration, but is simply a single constant matrix. This implies that one does not need to calculate a trajectory nor take a limit, because the product of Jacobians collapses to a matrix power, and the Lyapunov spectrum is exactly the set of logarithms of the singular values of that one matrix.
+
+We will consider rules that live on CAs with periodic lattices (starting with elementary CAs), and rules that live on NAs on arbitrary undirected unweighted simple graphs. For the CAs, rules with a constant Jacobian are exactly the \emph{affine} rules. A rule is affine when its Boolean update function is a \textsc{xor} of a subset of its inputs together with a Boolean constant. In this case, the Jacobian is a (multilevel) circulant matrix, and its singular values are the discrete Fourier transform (DFT) of the rule's gradient stencil. This yields a closed-form Lyapunov spectrum for affine CAs in any dimension and for any neighbourhood that is the same at every cell. The notion of an affine rule on CAs does not carry over cleanly to an arbitrary graph, because then a local update rule can only be uniform if it is (outer)totalistic. For that reason, the one affine NA rule that is well defined on every graph is the parity rule: the \textsc{xor} of the entire neighbourhood. For the parity rule the constant Jacobian is the adjacency matrix itself, which yields exact relationships between the dynamics of the parity rule and the structural properties of the graph such as the spectral radius and the eigenvector centralities.
+
+The paper is organised as follows. Sec.~\ref{sec:jacobian} sets up the Boolean Jacobian and the Lyapunov spectrum, and distinguishes the configuration- and tangent-space pictures. Sec.~\ref{sec:lattice} outlines the relationship between affine CA rules and constant Jacobians in more detail, and works out the lattice case and its closed form. Sec.~\ref{sec:parity-network} treats the parity rule on networks, and gives the eigenvector-centrality reading. Sec.~\ref{sec:conclusion} concludes and briefly considers next steps.
+
+% ============================================================
+\section{The Boolean Jacobian and the Lyapunov spectrum}
+\label{sec:jacobian}
+
+\subsection{The Boolean derivative and Jacobian}
+
+We consider a binary discrete dynamical system (DDS) with state set $\mathcal{S}=\{0,1\}$. In this article we consider two kinds of DDS, namely a CA with $N$ cells $\{c_i\}_{i=1}^N$ on a regular lattice, or an NA with $N$ nodes $\{v_i\}_{i=1}^N$ on an arbitrary graph. The dynamics on the DDS are governed by a local update rule $\phi$ that induces a global update function $\Phi:\mathcal{S}^N\to\mathcal{S}^N$. A configuration is a vector $\mathbf{s}=(s_1,\dots,s_N)$ with $s_i\in\mathcal{S}$, and the configuration at timestep $t$ is written $\mathbf{s}^t$. We refer to \cite{rollier2025comprehensive} for a taxonomy of these systems and the relations between them.
+
+The Jacobian generalises the derivative to a vector-valued function. For a binary DDS its entries are given by the Boolean derivative $J_{ij}(\mathbf{s})=\partial\Phi_i/\partial s_j$ \cite{vichniac1990boolean,bagnoli1992damage}, where
+\begin{equation}
+    \label{eq:boolean-derivative}
+    \frac{\partial\Phi_i}{\partial s_j}
+    =\Phi(s_1,\dots,s_j,\dots,s_N)_i\;\oplus\;
+     \Phi(s_1,\dots,\bar{s}_j,\dots,s_N)_i,
+\end{equation}
+$\oplus$ is the \textsc{xor} operator and $\bar{s}_j=1\oplus s_j$. The entry $J_{ij}$ answers a simple question: if the state of cell $c_j$ (or node $v_j$) is flipped, does the state of cell $c_i$ (or node $v_i$) change at the next timestep? If it does, $J_{ij}=1$; if it does not, $J_{ij}=0$. The derivative is evaluated by flipping $s_j$, applying $\Phi$ to both configurations, and comparing the $i$-th output; carrying this out for every pair $(i,j)$ assembles the whole matrix. By construction the Jacobian is Boolean, $\mathbf{J}\in\{0,1\}^{N\times N}$, and it is contained in the adjacency matrix $\mathbf{A}$ of the underlying topology, in the sense that $A_{ij}=0$ implies $J_{ij}=0$: a cell cannot influence a cell to which it is not connected. In general, $\mathbf{J}$ depends on the configuration $\mathbf{s}$, and we write
+$\mathbf{J}(\mathbf{s}^t)$ for the Jacobian at timestep $t$.
+
+\subsection{The Jacobian of elementary CAs}
+
+For an elementary cellular automaton (ECA), the local rule $\phi$ acts on a radius-one neighbourhood, mapping the states of a triplet of adjacent cells $(c_-, c_\circ, c_+)$ at timestep $t$ to the state of the triplet's central cell $c_\circ$ at the next timestep. This rule can be reduced to a Boolean expression: Wolfram rule $30$, for example, is expressed as $(s_-, s_\circ, s_+) \mapsto s_- \oplus (s_\circ + s_+)$, where $+$ denotes the \textsc{or} operator. The \emph{gradient} of $\phi$ evaluated at some state triplet $(s_{i-1}, s_i, s_{i+1})$ in $\mathbf{s}$ is then 
+\begin{equation}
+    \label{eq:eca-gradient}
+    \nabla\phi(s_{i-1}, s_i, s_{i+1}) = (J_{i,i-1},J_{i,i},J_{i,i+1}).
+\end{equation}
+Each component is the Boolean derivative \eqref{eq:boolean-derivative} of the local rule with respect to the corresponding neighbour, reduced to a Boolean expression. The gradient of every ECA can be read off from the local rule in this way. Recomputing it in disjunctive normal form for the $88$ non-equivalent ECAs reproduces the table of Vichniac \cite{vichniac1990boolean} except for four entries, for rules $62$, $110$, $130$ and $146$, which differ from the published values and which we believe to be misprints; the corrected entries are given in Tab.~\ref{tab:gradient-table}. These gradients allow one to construct the complete Jacobian, which is then used to track perturbations in tangent space.
+
+\begin{table}[t]
+    \centering
+    \caption{Corrected gradient entries in disjunctive normal form for the four ECAs whose published
+    values in \cite{vichniac1990boolean} appear to be misprints. Here juxtaposition denotes \textsc{and}, $+$ denotes \textsc{or}, and an overbar denotes \textsc{not}.}
+    \label{tab:gradient-table}
+    \begin{tabular*}{\tblwidth}{@{}r l l @{}}
+    \toprule
+    \textbf{Rule} & $\phi(s_{i-1},s_i,s_{i+1})$ & $\nabla\phi(s_{i-1},s_i,s_{i+1})$\\
+    \midrule
+    62 & $s_{i-1}\bar{s}_i+s_i\bar{s}_{i-1}+s_{i+1}\bar{s}_{i-1}$ & $(s_i+\bar{s}_{i+1},s_{i-1}+\bar{s}_{i+1},\bar{s}_{i-1}\bar{s}_i)$\\
+    110 & $s_i\bar{s}_{i+1}+s_{i+1}\bar{s}_{i-1}+s_{i+1}\bar{s}_i$ & $(s_is_{i+1},s_{i-1}+\bar{s}_{i+1},s_{i-1}+\bar{s}_i)$ \\
+    130 & $s_{i-1}s_is_{i+1}+s_{i+1}\bar{s}_{i-1}\bar{s}_i$ & $(s_{i+1},s_{i+1},s_{i-1}s_i+\bar{s}_{i-1}\bar{s}_i)$ \\
+    146 & \makecell[tl]{$s_{i-1}s_is_{i+1}+s_{i-1}\bar{s}_i\bar{s}_{i+1}$ \\ $\ +\,s_{i+1}\bar{s}_{i-1}\bar{s}_i$} & $(s_{i+1}+\bar{s}_i,s_{i-1}+s_{i+1},s_{i-1}+\bar{s}_i)$\\
+    \bottomrule
+    \end{tabular*}
+\end{table}
+
+\subsection{Configuration space and tangent space}
+The perturbation can be tracked in two related but distinct spaces, and the distinction is central to what follows; it is set out in detail in \cite{vispoel2024damage}, whose treatment we follow.
+
+Consider two configurations that differ in a single cell $c_j$ only, such that the initial defect is $\Delta\mathbf{s}^0=\mathbf{e}_j$, the $j$-th standard basis vector. The \emph{difference pattern} at later times, $\Delta\mathbf{s}^t=\mathbf{s}^t\oplus\hat{\mathbf{s}}^t$, is the cell-by-cell mismatch between the two configurations, where $\hat{\mathbf{s}}^t$ is evolved from $\mathbf{s}^0\oplus\Delta\mathbf{s}^0$. For one step the Jacobian gives this difference pattern exactly,
+\begin{equation}
+    \Delta\mathbf{s}^1=\mathbf{J}(\mathbf{s}^0)\,\Delta\mathbf{s}^0,
+\end{equation}
+but $\Delta\mathbf{s}^1$ generally contains more than one defect, so the relation does not iterate: for $t>1$ one has (in general) $\Delta\mathbf{s}^t\neq\mathbf{J}(\mathbf{s}^{t-1})\,\Delta\mathbf{s}^{t-1}$. The linearised system and the true system coincide for a single step from a single defect and diverge afterwards, which is the familiar gap between a nonlinear map and its local linearisation.
+
+The shape of the difference pattern depends on the rule, the initial configuration, and the location of the defect. For ECAs information travels at most one cell per timestep in each direction, so the difference pattern is confined to a cone expanding from the perturbed cell. Fig.~\ref{fig:defect-cones} shows representative cases for rules in Wolfram classes III and IV. Rules $90$ and $150$, the linear self-exclusive and self-inclusive elementary parity rules, fill the entire cone.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figures/persistent_defect_eca_diff.pdf}
+    \caption{Configuration-space difference patterns for representative ECA rules from a random initial configuration. A perturbation is introduced in a single cell and the mismatching cells are recorded over time. The density of the cone grows with the number of nonzero gradient entries.}
+    \label{fig:defect-cones}
+\end{figure}
+
+This configuration-space view is intuitive, but tracking $\Delta\mathbf{s}^t$ is costly, since it requires simulating two systems in parallel, and the patterns it produces resist a compact summary. We therefore move to the more abstract tangent space, where a single trajectory suffices: the perturbation $\delta\mathbf{s}^t$ evolves under the product of Jacobians evaluated along that one trajectory,
+\begin{equation}
+    \label{eq:jacobian-product}
+    \mathbf{J}^{(t)}=\mathbf{J}(\mathbf{s}^{t-1})\,\mathbf{J}(\mathbf{s}^{t-2})
+    \cdots\mathbf{J}(\mathbf{s}^1)\,\mathbf{J}(\mathbf{s}^0),
+    \qquad \delta\mathbf{s}^t=\mathbf{J}^{(t)}\,\delta\mathbf{s}^0 .
+\end{equation}
+Here $\delta\mathbf{s}^0=\Delta\mathbf{s}^0$, but we keep $\Delta\mathbf{s}^t$ for the true Boolean difference pattern and $\delta\mathbf{s}^t$ for the tangent-space perturbation. The tangent-space dynamics ride on top of the configuration-space trajectory: the matrices in \eqref{eq:jacobian-product} are evaluated along the true sequence $\mathbf{s}^0,\mathbf{s}^1,\dots$, even though the perturbation itself lives in the linearised space.
+
+The decisive advantage is that the linearised dynamics are additive: any perturbation decomposes into a sum of single-cell defects whose evolutions superpose, whereas defects in configuration space interact nonlinearly and cannot be separated this way \cite{vispoel2024damage}. The growth of an arbitrary perturbation can therefore be summarised by a fixed set of rates, rather than studied case by case. Tracking the evolution of all $N$ single-cell defects gives the Lyapunov profile \cite{baetens2018lyapunov}, which retains the spatial identity of each defect. In the next subsection we instead summarise the growth in a basis-invariant fashion, which trades that spatial detail for direct access to the algebraic structure of the rule.
+
+\subsection{The Lyapunov spectrum}
+Following the established treatment for continuous-state systems \cite{eckmann1985ergodic}, we track the full ellipsoid of perturbations and record the growth of its semi-axes. These semi-axes are the singular values $\{\sigma_k\}_{k=1}^N$ of $\mathbf{J}^{(t)}$, and the Lyapunov spectrum collects their growth rates,
+\begin{equation}
+    \label{eq:lyapunov-spectrum}
+    \Lambda_k=\limsup_{t\to\infty}\frac{1}{t}\,\ln\bigl(\sigma_k\bigr),
+    \qquad k=1,\dots,N.
+\end{equation}
+The largest element is the maximal Lyapunov exponent (MLE), whose sign indicates whether nearby trajectories diverge or converge \cite{eckmann1985ergodic}.
+
+Working with the singular values, rather than the individual cell defects of the profile, is a deliberate choice. The singular values are invariant under orthogonal changes of basis, so the spectrum is a property of the rule and not of the cell labelling; for the constant-Jacobian rules studied below it coincides with the moduli of the eigenvalues of $\mathbf{J}$, which is exactly what connects it to the algebraic structure of the rule. The orthogonal directions also separate growth rates that a cell-by-cell view conflates, since a generic seed defect aligns with the fastest-growing direction and grows at the maximal rate irrespective of its origin. The sum of the positive exponents, finally, measures volume expansion in tangent space and so links the spectrum to the Kolmogorov-Sinai entropy, a connection examined empirically for CAs in \cite{vispoel2024damage}.
+
+Three obstacles stand in the way of computing \eqref{eq:lyapunov-spectrum} in general. First, the limit must be replaced by a finite cut-off. Second, the Jacobians depend on the configuration, so the spectrum must be averaged over an ensemble of initial configurations. Third, the computation is numerically fragile: as $t$ grows the ratio between the largest and smallest singular values of $\mathbf{J}^{(t)}$ quickly exceeds floating-point precision, so the product cannot be formed directly. The spectrum is therefore normally approximated with Benettin's algorithm, which interleaves the matrix products with QR factorisations \cite{benettin1980lyapunov1,benettin1980lyapunov2}. We show next that all three obstacles disappear at once for rules with a constant Jacobian.
+
+% ============================================================
+\section{Affine cellular automata}
+\label{sec:lattice}
+
+\subsection{Affine ECAs have a constant Jacobian}
+\label{sec:affine}
+
+A binary rule is \emph{affine} when its local update function is a \textsc{xor} of a subset of the neighbourhood states and a binary constant. For an ECA this means
+\begin{equation}
+    \label{eq:affine-eca}
+    \phi(s_{i-1},s_i,s_{i+1})
+    =a_0\,\oplus\,a_-\,s_{i-1}\,\oplus\,a_\circ\,s_i\,\oplus\,a_+\,s_{i+1},
+\end{equation}
+and the affine rules are the eight linear rules ($a_0=0$) together with their complements ($a_0 = 1$) (Tab.~\ref{tab:affine-ecas}). Their global dynamics are classical: they reduce to linear algebra over the field $\mathrm{GF}(2)$, which is why their state-transition structure has been characterised in full \cite{martin1984algebraic,manzini1999attractors,hudcova2024simulation}. Our concern is not the global dynamics but the Lyapunov spectrum, and for that the relevant property is the following.
+
+\begin{table}[t]
+\centering
+\caption{The $16$ affine ECAs (nonlinear ECAs in parentheses), grouped by the number of inputs the rule is sensitive to (the gradient weight $\lvert\nabla\phi\rvert$). The constant term $a_0$ does not enter the Jacobian, so each rule and its complement share a gradient.}
+\label{tab:affine-ecas}
+\begin{tabular*}{\tblwidth}{@{} p{2cm} p{3.2cm} c c @{}}
+\toprule
+\textbf{Rule} & $\phi$ & $\nabla\phi$ & $\lvert\nabla\phi\rvert$\\
+\midrule
+0 (255)   & $0\,(\oplus 1)$                                 & $(0,0,0)$ & 0\\
+15 (240)  & $\bar{s}_{i-1}\,(\oplus 1)$                     & $(1,0,0)$ & 1\\
+85 (170)  & $\bar{s}_{i+1}\,(\oplus 1)$                     & $(0,0,1)$ & 1\\
+51 (204)  & $\bar{s}_i\,(\oplus 1)$                         & $(0,1,0)$ & 1\\
+60 (195)  & $s_{i-1}\oplus s_i\,(\oplus 1)$                 & $(1,1,0)$ & 2\\
+102 (153) & $s_i\oplus s_{i+1}\,(\oplus 1)$                 & $(0,1,1)$ & 2\\
+90 (165)  & $s_{i-1}\oplus s_{i+1}\,(\oplus 1)$             & $(1,0,1)$ & 2\\
+150 (105) & $s_{i-1}\oplus s_i\oplus s_{i+1}\,(\oplus 1)$   & $(1,1,1)$ & 3\\
+\bottomrule
+\end{tabular*}
+\end{table}
+
+For an affine rule the Boolean derivative is trivial to evaluate. Flipping the state of the left neighbour $s_{i-1}$ in \eqref{eq:affine-eca} toggles the output precisely when $a_-=1$, independently of the rest of the configuration, and likewise for $s_i$ and $s_{i+1}$. Each Boolean derivative is therefore the constant coefficient of the corresponding input, so $\nabla\phi=(a_-,a_\circ,a_+)$ and the Jacobian does not depend on $\mathbf{s}$. The converse also holds: if every Boolean derivative is a constant then the update is \textsc{xor}-linear in each argument, hence affine. So a rule is affine if and only if its Boolean Jacobian is configuration-independent.
+
+When the Jacobian is constant, the product \eqref{eq:jacobian-product} collapses
+to the matrix power $\mathbf{J}^{(t)}=\mathbf{J}^t$, whose singular values are
+$\{\sigma_k(\mathbf{J})^t\}_{k=1}^N$. Substituting into \eqref{eq:lyapunov-spectrum}, the
+factor $t$ cancels, the limit superior becomes an equality, and
+\begin{equation}
+    \label{eq:exact-spectrum}
+    \Lambda_k=\ln\bigl(\sigma_k(\mathbf{J})\bigr),\qquad k=1,\dots,N.
+\end{equation}
+For an affine rule the Lyapunov spectrum is thus not an asymptotic
+quantity to be approximated but a fixed property of one matrix: no trajectory is
+simulated, no cut-off is chosen, and the numerical instability of the Jacobian
+product never arises.
+
+\subsection{Closed-form Lyapunov spectrum of affine ECAs}
+
+Imposing periodic boundary conditions on the affine ECAs defined in Eq.~\eqref{eq:affine-eca}, the constant Jacobian is the \emph{circulant matrix} in which every row carries the gradient, shifted by one cell,
+\begin{equation}
+    \label{eq:circulant-J}
+    \mathbf{J}=
+    \begin{pmatrix}
+    a_\circ     & a_+       & 0         & \cdots    & 0         & a_-\\
+    a_-         & a_\circ   & a_+       & 0         & \cdots    & 0\\
+    0           & a_-       & a_\circ   & a_+       &           & \vdots\\
+    \vdots      &           & \ddots    & \ddots    & \ddots    & 0\\
+    0           &           &           & a_-       & a_\circ   & a_+\\
+    a_+         & 0         & \cdots    & 0         & a_-       & a_\circ
+    \end{pmatrix}.
+\end{equation}
+A circulant matrix is normal, so its singular values are the absolute values of its eigenvalues, and the eigenvalues of a circulant matrix are the DFT of its first row \cite{davis1979circulant}. Writing the eigenvalue at index $k$ as the gradient evaluated at the spatial frequency $k/N$,
+\begin{equation}
+    \label{eq:eca-exp}
+    \lambda_k=a_\circ + a_+\exp\left(\frac{2\pi i k}{N}\right) + a_- \exp\left(\frac{-2\pi i k}{N}\right),
+\end{equation}
+and taking the modulus gives the singular values
+\begin{equation}
+    \label{eq:eca-singular-values}
+    \begin{split}
+    \sigma_k=\Biggl[\left(a_\circ
+    +\bigl[a_+ + a_-\bigr]
+    \cos\!\left(\frac{2\pi k}{N}\right)\right)^{2}\\
+    \,+\,\left[a_+ - a_-\right]^{2}
+    \sin^{2}\!\left(\frac{2\pi k}{N}\right)\Biggr]^{1/2},
+    \end{split}
+\end{equation}
+for $k=1,\dots,N$, with the corresponding Lyapunov spectrum $\Lambda_k=\ln(\sigma_k)$. As $N\to\infty$ the variable $k/N$ becomes the continuous unit interval, and the spectrum depends on the rule only through its gradient.
+
+The \emph{gradient weight} $\lvert\nabla\phi\rvert$ organise the $16$ spectra into four distinct classes, as we show in Fig.~\ref{fig:eca-spectra}. It also fixes the maximal exponent: at $k=N$ every term in \eqref{eq:eca-exp} is in phase, so $\sigma_N=\lvert\nabla\phi\rvert$ and $\mathrm{MLE}=\ln(\lvert\nabla\phi\rvert)$. The self-inclusive parity rule $150$ and its affine complement $105$, both with gradient $(1,1,1)$, are the most sensitive cases. Here \eqref{eq:eca-singular-values} reduces to $\sigma_k=\lvert 1+2\cos(2\pi k/N)\rvert$, so
+\begin{align}
+    \label{eq:closed-form-150}
+    \Lambda_k=\ln\left\lvert 1+2\cos\left(\frac{2\pi k}{N}\right)\right\rvert
+\end{align}
+and the $\mathrm{MLE}=\ln(3)$.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figures/singular_values_and_lyapunov_spectra_of_constant_J_ECAs_NO_CLASSES.pdf}
+    \caption{Singular values of the constant Jacobian of the affine ECAs
+    (Tab.~\ref{tab:affine-ecas}) and their Lyapunov spectra, ordered by gradient weight, for $N=3001$. Rules for $|\nabla\phi|=2$ have two distinct singular value parametrisations  (full and dashed line), with identical associated spectra as $N\to\infty$.}
+    \label{fig:eca-spectra}
+\end{figure}
+
+The affine spectra give a controlled test of any numerical Lyapunov routine, because the exact answer is known. Fig.~\ref{fig:benchmark} compares, for rule $150$ ($N=101, T=200$), the closed-form spectrum with a stable Benettin approximation and with direct-multiplication approximations for two 16-bit and 64-bit precision. For small exponents (large $k$) direct multiplication plateaus as the slower-growing directions are lost to floating-point error, whereas Benettin recovers the exact spectrum. For large exponents (small~$k$, inset) the roles reverse: direct multiplication is exact even at 16-bit precision, while Benettin has not yet converged at the horizon of $T=200$. The accurate range of direct multiplication deepens with precision, identifying floating-point precision as the cause of its failure. The same comparison applied to the affine rules in a recent study \cite{vispoel2024damage} indicates that several of the reported spectra contain artefacts of this kind, and the closed form corrects them.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figures/benchmark_rule150.pdf}
+    \caption{Lyapunov spectrum of rule $150$ ($N=101$, sorted descending), computed at a common horizon $T=200$ by three methods: the exact closed form from \eqref{eq:closed-form-150}, Benettin's algorithm, and direct multiplication at two floating-point precisions.}
+    \label{fig:benchmark}
+\end{figure}
+
+\subsection{Generalisation to CAs with higher dimensions and arbitrary neighbourhoods}
+
+The construction extends without difficulty to larger sizes of shift-invariant neighbourhoods in lattices of arbitrary dimensions. A neighbourhood is specified by a set of offset vectors $\boldsymbol{\delta}=(\delta_1,\dots,\delta_D)\in\mathbb{Z}^D$, one per neighbour, where $\delta_d$ is the displacement along the $d$-th dimension; for the ECA the offsets are $\delta_1 \in \{-1, 0, +1\}$, which in Sec.~\ref{sec:jacobian} we referred to as cells $c_-, c_\circ$, and $c_+$. If we order the cells of a $D$-dimensional periodic lattice of side length $N$ lexicographically, an affine rule's constant Jacobian is then a $D$-level circulant matrix: a circulant matrix whose blocks are themselves circulant, $D$ times over. Such a matrix is diagonalised by the $D$-dimensional DFT \cite{davis1979circulant}, indexed by a frequency vector $\mathbf{k}=(k_1,\dots,k_D)$, and its singular values are
+\begin{equation}
+    \label{eq:general-d}
+    \sigma_{\mathbf{k}}
+    =\Biggl\lvert\sum_{\boldsymbol{\delta}}a_{\boldsymbol{\delta}}\,
+    \exp\Bigl(\frac{2\pi i}{N}\sum_{d=1}^{D}\delta_d k_d\Bigr)\Biggr\rvert,
+\end{equation}
+where the sum goes over the neighbourhood offsets $\boldsymbol{\delta}$ and $a_{\boldsymbol{\delta}} \in \{0,1\}$ is the sensitivity of the output to the neighbour at offset $\boldsymbol{\delta}$. Eq.~\eqref{eq:general-d} is the modulus of the multidimensional DFT of the gradient stencil; it is the
+convolution theorem applied to the shift-invariant structure of the rule.
+
+The maximal exponent is again attained where every exponential is in phase, at
+$\mathbf{k}=(N,\dots,N)$, so
+\begin{equation}
+    \label{eq:mle-count}
+    \mathrm{MLE}=\ln\Bigl(\sum_{\boldsymbol{\delta}}
+    a_{\boldsymbol{\delta}}\Bigr).
+\end{equation}
+This is simply the logarithm of the number of inputs to which the rule is sensitive. For a parity rule every neighbour is a sensitive input, so $\mathrm{MLE}=\ln(\lvert\mathcal{N}\rvert)$, the logarithm of the neighbourhood size. As an illustration, the parity rule with the 2-D Moore neighbourhood has $\mathrm{MLE}=\ln(9)=2\ln(3)$, twice the value for ECA rule $150$. This reflects the fact that the Moore neighbourhood is the Cartesian product of two 1-D radius-one neighbourhoods; the MLE is additive over such a product.
+
+\subsection{Bridging case: affine outer-totalistic rules}
+\label{subsec:bridging-case}
+
+The rule space of CAs with extended neighbourhoods grows rapidly with $|\mathcal{N}|$, quickly becoming too large to study exhaustively. Most of these rules are also anisotropic, and so of limited interest to applications where the orientation of a neighbour carries no physical meaning. For both reasons, such CAs are commonly studied in \emph{outer-totalistic} form, where the update depends only on the central state and on the \emph{sum} of the surrounding states \cite{packard1985two}. An affine rule is outer-totalistic when it is equally (in)sensitive to every neighbour, that is, when all the directional gradient entries share a common value $g\in\{0,1\}$. Its sensitivity to the central cell, $a_\circ\in\{0,1\}$, is a separate choice: $a_\circ=1$ if the output depends on the cell's own state and $a_\circ=0$ if it does not. Every affine outer-totalistic rule is then fixed by the pair $(a_\circ,g)$, independently of which neighbourhood is used.
+
+Consider three standard neighbourhoods in 2-D CAs: von Neumann, Moore, and radius-2 von Neumann, defined through respectively 5, 9, and 13 offset vectors $\boldsymbol{\delta}$. Because these are symmetric under $\boldsymbol{\delta}\mapsto-\boldsymbol{\delta}$, the exponentials in \eqref{eq:general-d} pair into cosines, and the singular values become
+\begin{equation}
+    \label{eq:ot-singular}
+    \sigma_{k,l}=\bigl\lvert a_\circ+g\,\mathcal{K}(k,l)\bigr\rvert,\ \ \ 
+    \mathcal{K}(k,l)=\sum_{\boldsymbol{\delta}\neq\boldsymbol{0}}
+    \cos\left(\frac{2\pi(\delta_1 k+\delta_2 l)}{N}\right),
+\end{equation}
+where $\mathcal{K}$ is the DFT of the neighbourhood's indicator function (its \emph{structure factor}), and we wrote $(k_1, k_2) = (k,l)$. The structure factor is a property of the neighbourhood alone; the rule enters only through the pair $(a_\circ,g)$. The parity rule is the case $g=1$: the self-inclusive parity rule has $a_\circ=1$ and is totalistic (it counts the central cell amongst the summed neighbours), whilst the self-exclusive parity rule has $a_\circ=0$ and is genuinely outer-totalistic (blind to the central cell). Tab.~\ref{tab:structure-factors} gives $\mathcal{K}$ and the self-inclusive parity-rule MLE for the three neighbourhoods, whilst Fig.~\ref{fig:2d-parity} shows the corresponding spectra. The fact that these rules are both (outer)totalistic and affine allows for the analytical study of the Lyapunov spectra of parity rules on arbitrary graphs.
+
+\begin{table}[t]
+    \centering
+    \caption{Structure factor $\mathcal{K}(k,l)$ and self-inclusive parity-rule
+    maximal Lyapunov exponent for three neighbourhoods, with $\alpha=2\pi k/N$
+    and $\beta=2\pi l/N$.}
+    \label{tab:structure-factors}
+    \begin{tabular*}{\tblwidth}{@{} l l r @{}}
+    \toprule
+    $\mathcal{N}$ & $\mathcal{K}(k,l)$ & \textbf{Parity MLE}\\
+    \midrule
+    von Neumann      & $2\cos\alpha+2\cos\beta$ & $\ln(5)$\\[2pt]
+    Moore            & $2\cos\alpha+2\cos\beta+4\cos\alpha\cos\beta$ & $\ln(9)$\\[2pt]
+    radius-2 v.\ N.  & $\begin{aligned}[t]&2\cos\alpha+2\cos\beta+4\cos\alpha\cos\beta\\
+                       &\quad+2\cos 2\alpha+2\cos 2\beta\end{aligned}$ & $\ln(13)$\\
+    \bottomrule
+    \end{tabular*}
+\end{table}
+
+\begin{figure}[t]
+\centering
+    \includegraphics[width=\linewidth]{figures/singular_values_and_log_spectra_2d_parity.pdf}
+    \caption{Singular values and Lyapunov spectra of the self-inclusive parity
+    rule on 2-D lattices, for the three neighbourhoods of
+    Tab.~\ref{tab:structure-factors}.}
+    \label{fig:2d-parity}
+\end{figure}
+
+% ============================================================
+\section{The parity rule on networks}
+\label{sec:parity-network}
+
+\subsection{The parity rule}
+
+Consider a simple, undirected, unweighted graph with $N$ nodes and adjacency matrix $\mathbf{A}\in\{0,1\}^{N\times N}$. The parity rule updates a node according to the parity of the state sum over its neighbourhood,
+\begin{equation}
+    \label{eq:parity-rule}
+    s_i^{t+1}=a_0\oplus\, a_\circ s_i^t\,\oplus\!\!\bigoplus_{j:\,v_j\in\mathcal{N}(v_i)}\!\!s_j^t,
+    \qquad a_0, a_\circ\in\{0,1\}.
+\end{equation}
+When $a_\circ = 1$ the rule is self-inclusive (totalistic); otherwise it is self-exclusive (outer-totalistic). If the \textsc{xor} over the states of all connected nodes is even, the rule maps state $s_i^t$ to $a_0\oplus a_\circ s_i^t$, and to $a_0\oplus a_\circ s_i^t \oplus 1$ otherwise. As in Eq.~\eqref{eq:affine-eca}, the value of $a_0$ again allows for two complementary cases with identical dynamics, modulo some background oscillation. Note that for a ring graph of degree $2$, the case $a_0 = a_\circ = 0$ corresponds exactly with ECA rule $90$ and the case $a_0 = 0, a_\circ = 1$ with rule $150$, illustrating that indeed Eq.~\eqref{eq:parity-rule} is the network generalisation of the parity CAs. This equivalence can be generalised to all affine outer-totalistic rules in $D$ dimensions from Subsec.~\ref{subsec:bridging-case} by choosing as underlying topology the Cayley graph of $(\mathbb{Z}/N\mathbb{Z})^D$ with the neighbourhood as connection set.
+
+By the argument of Sec.~\ref{sec:affine} the Jacobian associated with rule \eqref{eq:parity-rule} is constant. Evaluating \eqref{eq:boolean-derivative} on \eqref{eq:parity-rule} shows that this constant Jacobian is precisely the adjacency matrix itself, $\mathbf{J}=\mathbf{A} + a_\circ\mathbf{I}$: flipping any neighbour changes the parity of the (outer)-totalistic neighbourhood sum and therefore toggles the output, whilst flipping a non-neighbour does not directly affect its state.
+
+\subsection{The Lyapunov spectrum is the absolute graph spectrum}
+
+With $\mathbf{J}=\mathbf{A} + a_\circ\mathbf{I}$, the exact spectrum \eqref{eq:exact-spectrum}
+follows directly. The matrix $\mathbf{A}$ is real and symmetric, so its singular
+values are the absolute values of its eigenvalues, and
+\begin{equation}
+    \label{eq:network-spectrum}
+    \Lambda_k=\ln\bigl(\sigma_k(\mathbf{A + a_\circ\mathbf{I}})\bigr)
+    =\ln\bigl(\lvert\lambda_k(\mathbf{A})+ a_\circ\rvert\bigr)
+\end{equation}
+for $k=1,\dots,N$. The Lyapunov spectrum of a parity rule on a graph is, up to a logarithm and an absolute value, the spectrum of that graph \cite{vanmieghem2011graph}. The maximal exponent is $\mathrm{MLE}=\ln(\rho(\mathbf{A})+a_\circ)$, the logarithm of the spectral radius $\rho(\mathbf{A})=\max_k\lvert\lambda_k(\mathbf{A})+a_\circ\rvert = \lambda_N+a_\circ$. The spectral radius is bounded below by the mean degree of a connected graph \cite{hong1993bounds}, so the parity rule has a positive MLE on every connected graph with mean degree above one, such that it behaves chaotically on all networks of practical interest.
+
+The contrast with the lattice case is instructive. On a periodic lattice $\mathbf{A}$ is circulant and the DFT diagonalises it analytically, which gave the closed forms of Sec.~\ref{sec:lattice}. On a general graph no such fixed diagonalising basis exists, but the spectrum still follows from a single eigendecomposition of one constant matrix, with no need for simulating the trajectory.
+
+\subsection{Perturbation amplitude and eigenvector centrality}
+
+The spectral radius that fixes the MLE is the same eigenvalue that defines eigenvector centrality. The principal eigenvector $\mathbf{x}_N$, with $\mathbf{A}\mathbf{x}_N=\lambda_N\mathbf{x}_N$ and $\lambda_N=\rho(\mathbf{A})$, assigns to each node $v_i$ the strictly positive centrality score $x_{N,i}$ \cite{bonacich1987power}. We now show that this score governs the amplitude of a perturbation propagated by the parity rule.
+
+Say we work in tangent space and seed a perturbation at node $v_i$, so $\delta\mathbf{s}^0=\mathbf{e}_i$. Adding a multiple of the identity to a matrix shifts its eigenvalues by that constant but leaves its eigenvectors unchanged, so $\mathbf{A}$ and $\mathbf{J}=\mathbf{A}+a_\circ\mathbf{I}$ share the same orthonormal eigenbasis $\{\mathbf{x}_k\}$, with $\mathbf{e}_i=\sum_k x_{k,i}\,\mathbf{x}_k$ and $\mathbf{J}\mathbf{x}_k=(\lambda_k+a_\circ)\mathbf{x}_k$. Therefore, with $\tilde{\lambda}_k = \lambda_k + a_\circ$, 
+\begin{equation}
+    \delta\mathbf{s}^t=\mathbf{J}^t\,\delta\mathbf{s}^0
+    =\sum_{k=1}^{N}x_{k,i}\,\tilde{\lambda}_k^t\,\mathbf{x}_k.
+\end{equation}
+Taking the norm and using orthonormality,
+\begin{equation}
+    \label{eq:perturbation-norm}
+    \lVert\delta\mathbf{s}^t\rVert
+    =\tilde{\lambda}_N^t\,x_{N,i}
+    \Biggl(1+\sum_{k=1}^{N-1}\frac{x_{k,i}^2}{x_{N,i}^2}
+    \Bigl(\frac{\tilde{\lambda}_k}{\tilde{\lambda}_N}\Bigr)^{2t}\Biggr)^{1/2}.
+\end{equation}
+As $t\to\infty$ the sum vanishes, because $\lvert\tilde{\lambda}_k/\tilde{\lambda}_N\rvert<1$ for $k<N$, and the growth rate converges to $\ln(\tilde{\lambda}_N)=\Lambda_N$. The rate at which this asymptotic regime is reached is set by the spectral gap $\lambda_N-\lambda_{N-1}$, independent of the seed node. What \emph{does} depend on the seed node is the prefactor. The coefficient $x_{N,i}$ is the projection of the seed $\mathbf{e}_i$ onto the principal eigenvector, which on an undirected graph is the eigenvector centrality of the seeded node $v_i$. Geometrically, $\mathbf{A}^t$ deforms the unit sphere of tangent-space perturbations into an ellipsoid whose longest semi-axis points along $\mathbf{x}_N$ and has length $\tilde{\lambda}_N^t$; at long times $\mathbf{A}^t \mathbf{e}_i$ lies along this axis, at distance $\tilde{\lambda}_N^t \, x_{N,i}$ from the origin. A high-centrality seed therefore has a head-start in the dominant direction, and a correspondingly larger long-time amplitude.
+
+The Lyapunov spectrum is basis-invariant and discards which node was perturbed; the prefactor $x_{N,i}$ hands that information back. The same eigenvector underlies the dynami\-cal-importance score of Restrepo, Ott and Hunt~\cite{restrepo2006characterizing}, which scales as $x_{N,i}^2$ on an undirected graph and quantifies the effect on $\lambda_N$ of removing a node. Their score and our prefactor are distinct functions of the same eigenvector, ranking node importance differently.
+
+\subsection{Difference patterns on networks}
+
+The tangent-space spectrum says how fast a perturbation grows, but not what spatial pattern the true Boolean defect forms. Returning to configuration space, for the parity rule the difference pattern has an exact description. Because $\mathbf{J}=\mathbf{A}$ regardless of the configuration, we have
+\begin{equation}
+    \label{eq:defect-gf2}
+    \Delta\mathbf{s}^t=\mathbf{A}^t\,\Delta\mathbf{s}^0\pmod 2.
+\end{equation}
+If the initial defect sits at node $v_j$, the defect at node $v_i$ at time $t$ is $(\mathbf{A}^t)_{ij}$ modulo two. Over the integers $(\mathbf{A}^t)_{ij}$ counts the walks of length $t$ from $v_j$ to $v_i$; the reduction modulo two keeps only the parity of that count, since the \textsc{xor} cancels walks in pairs. Defect propagation under the parity rule is thus walk-counting modulo two, which places it within algebraic graph theory and contrasts with the unbounded tangent-space growth: the true defect lives in $\{0,1\}^N$, so the number of defective cells oscillates rather than growing without bound.
+
+The pattern depends sharply on the topology. On a ring the binomial structure of walk counts makes the defect reproduce the Sierpi\'nski triangle, the array of binomial coefficients modulo two, a connection that goes back to the algebraic theory of additive CAs \cite{martin1984algebraic}. On a periodic 2-D lattice the defect forms a wavefront that, after a transient, repeats periodically. On small-world and scale-free graphs the regularity is lost: rewired edges and hubs let the defect reach distant nodes ahead of any local wavefront. Fig.~\ref{fig:defect-topologies} collects these cases.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figures/defect_propagation_networks_parity.pdf}
+    \caption{True difference pattern $\Delta\mathbf{s}^t=\mathbf{A}^t\mathbf{e}_j\pmod 2$ of the parity rule, started from a single defect, on four topologies: a ring (Ring), a periodic 2-D lattice (Grid), a Watts-Strogatz small-world graph (WS) and a Barab\'asi-Albert scale-free graph (BA). Time runs downward; a dark-red cell marks a node whose state differs between the two configurations.}
+    \label{fig:defect-topologies}
+\end{figure}
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+The full Lyapunov spectrum records the growth rate along every orthogonal direction in tangent space, not only the largest. We have shown that the affine Boolean rules, those whose update is a \textsc{xor} of inputs and a constant, have a configuration-independent Boolean Jacobian, and therefore a Lyapunov spectrum that is exactly the logarithms of the singular values of one constant matrix. For an affine CA on a periodic lattice that matrix is multilevel circulant, so the spectrum is the multidimensional DFT of the gradient stencil. For the parity rule on an arbitrary graph it is the adjacency matrix, the spectrum is the logarithm of the absolute graph spectrum, and the long-time amplitude of a single-site perturbation scales with the seeded node's eigenvector centrality. Affine rules are the analytically tractable corner of rule space; outside it, the spectrum genuinely depends on the trajectory and must be approximated. The value of these exact results is that they fix reference points where Lyapunov spectra are otherwise only approximated. They expose vulnerabilities in both standard numerical routes \cite{vispoel2024damage}: direct multiplication loses the slower-growing directions to floating-point error, while Benettin's algorithm is slow to converge at the dominant end. And they turn the informal correspondence between spectral radius and dynamical sensitivity into an exact identity.
+
+Three directions follow naturally. First, the clean affine case for CAs is a starting point for rules that are affine only on part of their neighbourhood, or only along the trajectory actually visited; there the affine spectrum may act as a leading-order term to be reconciled with a numerical estimate. Second, the amplitude-centrality link of Sec.~\ref{sec:parity-network} is derived for undirected graphs; on a directed or weighted graph the left and right principal eigenvectors differ, and the perturbation amplitude should separate into an out-influence and an in-susceptibility, connecting the exact spectrum to the directed dynamical-importance scores of \cite{restrepo2006characterizing} and to the $\beta$-centralities of \cite{bonacich1987power}. Third, the same correspondence motivates a broader programme of inferring network properties from observed rule dynamics. The parity rule gives the analytically tractable extreme: from its linearised evolution one reads off the spectral radius (from the growth rate), the spectral gap (from the rate at which a single-site amplitude settles), and eigenvector centralities (from the limiting amplitudes). This clear link is possibly informative for analytical topological analysis from the observation of configuration-space evolution as well. At the empirical end, the Life-Like Network Automata (LLNAs) of Miranda et al.~\cite{miranda2016exploring,rollier2025essential} use the spatio-temporal patterns of outer-totalistic rules to classify networks by type with high accuracy, without an analytical account of why those rules carry the structural information. Whether other (near-)affine rules admit closed-form inferences in the same way as the parity rule, and whether such relations would help explain the empirical success of methods like LLNAs, are the natural follow-on questions.
+
+% ============================================================
+\section*{Declaration of competing interest}
+The authors declare that they have no known competing financial interests or personal relationships that could have appeared to influence the work reported in this paper.
+
+\section*{Data availability}
+The Python code used to compute the Lyapunov spectra and to reproduce the figures in this article is available through the GitHub repository mrollier/exact-lyapunov-spectra.
+
+\section*{Acknowledgements}
+This work has been partially supported by the FWO grant with project title ``An analysis of network automata as models for biological and natural processes'' [3G0G0122]; by the FWO travel grant with file name V412625N; by the FWO congress participation grant K105625N. The authors wish to thank Dr.~Milan Vispoel for the elucidating informal discussions that laid the groundwork for the present analysis.
+
+\printcredits
+
+\bibliographystyle{cas-model2-names}
+\bibliography{lyapunov-first_submission_CSF}
+
+\end{document}
