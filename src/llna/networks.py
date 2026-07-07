@@ -1,12 +1,14 @@
-import igraph as ig
 import random
+
+import igraph as ig
+
 
 def create_2d_torus_lattice(L, degree=8):
     """Create a 2D torus lattice with degree 8 or 4."""
     g = ig.Graph()
     n = L * L
     g.add_vertices(n)
-    
+
     edges = []
     for y in range(L):
         for x in range(L):
@@ -14,14 +16,18 @@ def create_2d_torus_lattice(L, degree=8):
             if degree == 8:
                 # 8 neighbors (Moore neighborhood: cardinal + diagonal)
                 neighbors = [
-                    (x+1, y), (x-1, y), (x, y+1), (x, y-1),
-                    (x+1, y+1), (x-1, y-1), (x+1, y-1), (x-1, y+1)
+                    (x + 1, y),
+                    (x - 1, y),
+                    (x, y + 1),
+                    (x, y - 1),
+                    (x + 1, y + 1),
+                    (x - 1, y - 1),
+                    (x + 1, y - 1),
+                    (x - 1, y + 1),
                 ]
             elif degree == 4:
                 # 4 neighbors (von Neumann neighborhood: cardinal only)
-                neighbors = [
-                    (x+1, y), (x-1, y), (x, y+1), (x, y-1)
-                ]
+                neighbors = [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
             else:
                 raise ValueError("Degree must be either 4 (von Neumann) or 8 (Moore).")
             for nx, ny in neighbors:
@@ -30,6 +36,7 @@ def create_2d_torus_lattice(L, degree=8):
                     edges.append((i, j))
     g.add_edges(edges)
     return g
+
 
 def watts_strogatz_rewire(g, p, rng=None):
     """Rewire edges in a copy of graph g with probability p (Watts-Strogatz style).
@@ -67,9 +74,11 @@ def watts_strogatz_rewire(g, p, rng=None):
         if g_copy.is_connected():
             return g_copy
         if try_counter == max_counter:
-            raise ValueError(f"It was not possible to construct a connected Watts-Strogatz graph.")
+            raise ValueError("It was not possible to construct a connected Watts-Strogatz graph.")
 
-#%% helper functions
+
+# %% helper functions
+
 
 def _node_index(x, y, L):
     """Convert 2D coordinates to node index in 1D."""

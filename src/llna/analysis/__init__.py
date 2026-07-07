@@ -4,7 +4,7 @@ Split by concern (2026-07 cleanup); every public name remains importable
 directly from llna.analysis, so notebook imports are unaffected.
 """
 
-from llna.analysis._encoding import _interval_encoding
+from llna.analysis._encoding import _interval_encoding  # noqa: F401  (re-export: notebooks import it)
 from llna.analysis.derrida import (
     calculate_derrida_coefficient,
     derrida_map_analytical,

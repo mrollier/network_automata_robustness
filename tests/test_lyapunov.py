@@ -2,7 +2,6 @@
 
 import igraph as ig
 import numpy as np
-import pytest
 
 from llna.analysis import (
     calculate_Yt,
@@ -53,7 +52,9 @@ def test_jacobian_ECA_rule150_is_tridiagonal_circulant():
     N = 12
     states = np.zeros(N)
     J = jacobian_ECA(150, states, return_next=False)
-    expected = (np.eye(N, k=0) + np.eye(N, k=1) + np.eye(N, k=-1) + np.eye(N, k=N - 1) + np.eye(N, k=-(N - 1))).astype(int)
+    expected = (
+        np.eye(N, k=0) + np.eye(N, k=1) + np.eye(N, k=-1) + np.eye(N, k=N - 1) + np.eye(N, k=-(N - 1))
+    ).astype(int)
     assert np.array_equal(J, expected)
 
 

@@ -44,6 +44,12 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 110
 target-version = "py311"
+extend-exclude = ["legacy", "archive"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "NPY"]
+# E501: long docstrings/messages in research code moved verbatim
+# E731: lambda-assignment is the established style in the encoding core
+# NPY002: legacy global np.random calls are a pinned reproducibility contract
+#         (see tests/characterization); new code should take an rng parameter
+ignore = ["E501", "E731", "NPY002"]

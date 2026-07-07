@@ -1,22 +1,17 @@
 """Boolean Jacobians, tangent-space propagation, and Lyapunov spectra."""
 
-from typing import Tuple, Union
-
 import igraph as ig
 import numpy as np
 import torch as tc
 from numpy.typing import NDArray
 
-from llna.automata import LLNA
 from llna.analysis.eca import eca_has_constantJ, jacobian_ECA
+from llna.automata import LLNA
 
 
 def jacobian(
-    graph:ig.Graph,
-    model:LLNA,
-    states:NDArray[np.int_],
-    return_next:bool=False
-) -> Union[NDArray[np.int_], Tuple[NDArray[np.int_], NDArray[np.int_]]]:
+    graph: ig.Graph, model: LLNA, states: NDArray[np.int_], return_next: bool = False
+) -> NDArray[np.int_] | tuple[NDArray[np.int_], NDArray[np.int_]]:
     """
     Returns the Jacobian matrix of partial Boolean derivatives. J[i,j] can be either 0 or 1,
     and answers the question 'is node i affected by a change in the state of node j in the previous time step?'
@@ -51,13 +46,13 @@ def jacobian(
     graph.to_undirected()
 
     # make matrix with N rows of the same state array
-    states_all = np.tile(states, (N,1))
+    states_all = np.tile(states, (N, 1))
     # calculate unperturbed next-timestep state vector (N times in parallel)
     states_all_next = np.array(model.step(edges, tc.tensor(states_all)), dtype=int)
     states_next = states_all_next[0]
 
     # make matrix with all possible single-defect perturbations
-    states_defect_all = (np.tile(states, (N,1)) + np.diag(np.ones(N, dtype=int))) % 2
+    states_defect_all = (np.tile(states, (N, 1)) + np.diag(np.ones(N, dtype=int))) % 2
     # calculate perturbed next-timestep state vector (N times in parallel)
     states_defect_all_next = np.array(model.step(edges, tc.tensor(states_defect_all)), dtype=int)
 
@@ -69,13 +64,10 @@ def jacobian(
         return J.T, states_next
     return J.T
 
+
 def defect_diameter(
-    graph:ig.Graph,
-    model:LLNA,
-    states:NDArray[np.int_],
-    T:int,
-    norm:bool=True
-) -> Union[NDArray[np.int_] ,NDArray[np.floating]]:
+    graph: ig.Graph, model: LLNA, states: NDArray[np.int_], T: int, norm: bool = True
+) -> NDArray[np.int_] | NDArray[np.floating]:
     """
     Calculates the configuration-space interpretation of the Lyapunov exponent after T time steps.
     This is defined by the diameter of the subgraph of all affected nodes. If normalised, it is divided by the diameter of the original graph.
@@ -99,7 +91,7 @@ def defect_diameter(
     diameters : numpy.ndarray
         An array of length T with the defect diameters related to a defect in each of the N nodes.
         If norm==False, the diameters are not normalised (divided by the diameter of the parent graph).
-    
+
     NOTE: this function turns out not to be terribly useful, actually.
     """
     N = len(states)
@@ -110,7 +102,7 @@ def defect_diameter(
     graph.to_undirected()
 
     # parallellise all possible single defects
-    states_original = np.tile(states, (N,1))
+    states_original = np.tile(states, (N, 1))
     states_perturbed = (states_original + np.diag(np.ones(N, dtype=int))) % 2
     # dimensions of states: [defect_index, time, node]
     states_original = np.array(model.forward(edges, tc.tensor(states_original), T=T), dtype=int)
@@ -123,21 +115,18 @@ def defect_diameter(
 
     # define subgraph for each of the defects at time step T
     diameters = []
-    for delta_cum in deltas_cum[:,-1,:]:
-        delta_nodes, = np.where(delta_cum)
+    for delta_cum in deltas_cum[:, -1, :]:
+        (delta_nodes,) = np.where(delta_cum)
         subG = graph.subgraph(delta_nodes)
         diameter = subG.diameter()
         diameters += [diameter]
     diameters = np.array(diameters)
     if norm:
-        diameters = diameters/graph.diameter()
+        diameters = diameters / graph.diameter()
     return diameters
 
-def calculate_Yt(
-    graph:ig.Graph,
-    model:LLNA,
-    states:NDArray[np.int_], T:int
-) -> NDArray[np.floating]:
+
+def calculate_Yt(graph: ig.Graph, model: LLNA, states: NDArray[np.int_], T: int) -> NDArray[np.floating]:
     """
     Calculates the perturbation of the unit defect sphere Y0 in tangent space starting from the point in configuration space indicated by the states array, after T time steps. This is used to calculate the tangent-space interpretation of the Lyapunov exponent of a cellular automaton or network automaton.
 
@@ -163,13 +152,11 @@ def calculate_Yt(
     # multiply subsequent Jacobians
     for _ in range(T):
         J, states = jacobian(graph, model, states, return_next=True)
-        Yt = np.matmul(J.astype(np.float64), Yt) # no mod 2! And no integers to avoid overflow!
+        Yt = np.matmul(J.astype(np.float64), Yt)  # no mod 2! And no integers to avoid overflow!
     return Yt
 
-def lyapunov_spectrum(
-    Yt:Union[NDArray[np.floating], NDArray[np.int_]],
-    T:int
-) -> NDArray[np.floating]:
+
+def lyapunov_spectrum(Yt: NDArray[np.floating] | NDArray[np.int_], T: int) -> NDArray[np.floating]:
     """
     Calculates the Lyapunov spectrum in the tangent-space interpretation, by taking the natural logarithm of the singular values of the evolved unit-perturbation sphere.
 
@@ -195,21 +182,20 @@ def lyapunov_spectrum(
     # # Eq. 13 in Vispoel et al (2024)
     # lambdas = np.log(Lambdas_squared)/(2*T)
     singulars = np.linalg.svd(Yt, compute_uv=False)
-    lambdas = np.log(singulars)/T
+    lambdas = np.log(singulars) / T
     return lambdas
 
+
 def lyapunov_spectrum_analytical(
-    rule:int,
-    N:int,
-    return_finite_pct=False
-) -> Union[NDArray[np.floating], Tuple[NDArray[np.floating], float]]:
+    rule: int, N: int, return_finite_pct=False
+) -> NDArray[np.floating] | tuple[NDArray[np.floating], float]:
     """
     Calculates the Lyapunov spectrum in the tangent-space interpretation, by taking the natural logarithm of the singular values of the evolved unit-perturbation sphere. Here we make use of the (supposed) fact that we are calculating the singular values for an ECA with a constant Jacobian. This Jacobian is circulant, which in turn allows for an analytical expression. In so doing, we avoid any numerical instabilities that tend to arise in the numerical approach.
     """
     # exceptions
     if not eca_has_constantJ(rule):
         raise ValueError(f"Rule {rule} does not have a constant Jacobian.")
-    if N<0:
+    if N < 0:
         raise ValueError(f"The number of nodes must be a natural number. Got N={N}.")
     # find constants
     J = jacobian_ECA(rule, np.zeros(N), return_next=False)
@@ -218,12 +204,14 @@ def lyapunov_spectrum_analytical(
     c1 = triplet[0]
     cN_1 = triplet[2]
     cc0 = c0**2 + c1**2 + cN_1**2
-    cc1 = c0*c1 + cN_1*c0
-    cc2 = cN_1*c1
+    cc1 = c0 * c1 + cN_1 * c0
+    cc2 = cN_1 * c1
     # calculate singular values
 
     k_values = np.arange(N)
-    eigenvalues = cc0 + 2 * cc1 * np.cos(2 * k_values * np.pi / N) + 2 * cc2 * np.cos(4 * k_values * np.pi / N)
+    eigenvalues = (
+        cc0 + 2 * cc1 * np.cos(2 * k_values * np.pi / N) + 2 * cc2 * np.cos(4 * k_values * np.pi / N)
+    )
     # The eigenvalues are squared magnitudes of the circulant symbol, hence
     # mathematically >= 0. Where the symbol has an exact zero (e.g. rules
     # 150/105 with N divisible by 3), rounding can leave -eps: clamp it
@@ -233,10 +221,9 @@ def lyapunov_spectrum_analytical(
         raise ValueError("Genuinely negative eigenvalues: the constant-Jacobian assumption is violated.")
     singular_values = np.sqrt(np.clip(eigenvalues, 0.0, None))
     # eliminate singular values of zero (and negative ones from numerical problems)
-    nonzero_singular_values = singular_values[singular_values>0]
+    nonzero_singular_values = singular_values[singular_values > 0]
     lyapunov_values = np.log(nonzero_singular_values)
     if return_finite_pct:
         finite_pct = round(len(nonzero_singular_values) / N * 100)
         return lyapunov_values, finite_pct
     return lyapunov_values
-

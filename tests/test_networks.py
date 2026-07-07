@@ -22,10 +22,14 @@ def test_torus_moore_neighbourhood_of_origin():
     g = create_2d_torus_lattice(L, degree=8)
     # node (x=0, y=0) has index 0; wrap-around Moore neighbours:
     expected = {
-        1, L - 1,                    # (±1, 0)
-        L, L * (L - 1),              # (0, ±1)
-        L + 1, L + L - 1,            # (±1, +1)
-        L * (L - 1) + 1, L * L - 1,  # (±1, -1)
+        1,
+        L - 1,  # (±1, 0)
+        L,
+        L * (L - 1),  # (0, ±1)
+        L + 1,
+        L + L - 1,  # (±1, +1)
+        L * (L - 1) + 1,
+        L * L - 1,  # (±1, -1)
     }
     assert set(g.neighbors(0)) == expected
 

@@ -6,8 +6,9 @@ import numpy as np
 from numpy.typing import NDArray
 
 
-def median_and_percentiles_over_ensemble(arrays, delta_t, lower_percentile=0.25, upper_percentile=0.75,
-                                         time_axis=0):
+def median_and_percentiles_over_ensemble(
+    arrays, delta_t, lower_percentile=0.25, upper_percentile=0.75, time_axis=0
+):
     """
     Find the convergence value of an ensemble of time series: pool the final
     `delta_t` timesteps of every ensemble member and return median + quantiles.
@@ -35,32 +36,35 @@ def median_and_percentiles_over_ensemble(arrays, delta_t, lower_percentile=0.25,
     up_perc = np.quantile(final_timesteps, upper_percentile)
     return median, lw_perc, up_perc
 
-def switch_life_to_higher_node_property_values(node_property_values,
-                                               init_config,
-                                               number_of_switches,
-                                               kill_low_values=True,
-                                               random_seed=None,
-                                               return_sorted_values=False):
+
+def switch_life_to_higher_node_property_values(
+    node_property_values,
+    init_config,
+    number_of_switches,
+    kill_low_values=True,
+    random_seed=None,
+    return_sorted_values=False,
+):
     """
     Modifies an initial configuration by switching the states of nodes based on their property values.
-    By default, nodes with low property values that are alive are set to dead, while nodes with high 
+    By default, nodes with low property values that are alive are set to dead, while nodes with high
     property values that are dead are set to alive. The total number of alive nodes remains constant.
 
     Parameters
     ----------
     node_property_values : numpy.ndarray
-        Array containing the property value for each node (e.g., degree, centrality). Must have the 
+        Array containing the property value for each node (e.g., degree, centrality). Must have the
         same length as init_config.
     init_config : numpy.ndarray
         Initial configuration array with binary states (0 or 1) for each node.
     number_of_switches : int
-        Number of nodes to switch from alive to dead (low property values) and from dead to alive 
+        Number of nodes to switch from alive to dead (low property values) and from dead to alive
         (high property values). Must be a non-negative integer not exceeding half the number of nodes.
     kill_low_values : bool
-        Defaults to True. If True, nodes with low property values are set to dead (0) and nodes with 
+        Defaults to True. If True, nodes with low property values are set to dead (0) and nodes with
         high property values are set to alive (1). If False, the behavior is reversed.
     random_seed : int, optional
-        Random seed for reproducibility of the shuffling process. If None (default), the random 
+        Random seed for reproducibility of the shuffling process. If None (default), the random
         state is not modified.
 
     Returns
@@ -70,19 +74,19 @@ def switch_life_to_higher_node_property_values(node_property_values,
 
     Notes
     -----
-    When multiple nodes share the same property value, their order is randomized within that group 
+    When multiple nodes share the same property value, their order is randomized within that group
     to avoid introducing spurious correlations.
     """
     if random_seed is not None:
         np.random.seed(random_seed)
-    if number_of_switches<0:
+    if number_of_switches < 0:
         raise ValueError(f"The number of switches must be a nutural number. Not {number_of_switches}.")
     # get all values of this metric
     num_nodes = len(init_config)
     if len(node_property_values) != num_nodes:
-        raise ValueError(f"The number of nodes and the number of initial states do not match.")
-    if number_of_switches > num_nodes//2:
-        raise ValueError(f"You cannot switch places of more than half of the nodes.")
+        raise ValueError("The number of nodes and the number of initial states do not match.")
+    if number_of_switches > num_nodes // 2:
+        raise ValueError("You cannot switch places of more than half of the nodes.")
     default_value = 0
     if not kill_low_values:
         default_value = 1
@@ -105,22 +109,22 @@ def switch_life_to_higher_node_property_values(node_property_values,
             # randomise the group
             np.random.shuffle(group)
             # glue the pieces back together
-            shuffled_sorted_node_indices[start:start + len(group)] = group
+            shuffled_sorted_node_indices[start : start + len(group)] = group
             start += len(group)
         # order the initial configuration according to the shuffled value-sorted indices
         init_config_shuffle_ordered = init_config[shuffled_sorted_node_indices]
     else:
         shuffled_sorted_node_indices = sorted_node_indices
         init_config_shuffle_ordered = init_config[shuffled_sorted_node_indices]
-        
+
     # find the shuffled indices with low node property whose node is alive and kill 'em dead (by default)
-    indices_where_alive = np.where(init_config_shuffle_ordered==1-default_value)[0][:number_of_switches]
-    init_config_shuffle_ordered[indices_where_alive] = default_value-0
+    indices_where_alive = np.where(init_config_shuffle_ordered == 1 - default_value)[0][:number_of_switches]
+    init_config_shuffle_ordered[indices_where_alive] = default_value - 0
     # same for shuffled indices with high node property of dead nodes that are brought to life (by default)
-    indices_where_dead  = np.where(init_config_shuffle_ordered==default_value-0)[0]
+    indices_where_dead = np.where(init_config_shuffle_ordered == default_value - 0)[0]
     number_of_dead = len(indices_where_dead)
-    indices_where_dead = indices_where_dead[(number_of_dead-number_of_switches):]
-    init_config_shuffle_ordered[indices_where_dead] = 1-default_value
+    indices_where_dead = indices_where_dead[(number_of_dead - number_of_switches) :]
+    init_config_shuffle_ordered[indices_where_dead] = 1 - default_value
     # undo the ordering
     init_config_switched = init_config_shuffle_ordered[np.argsort(shuffled_sorted_node_indices)]
 
@@ -128,6 +132,7 @@ def switch_life_to_higher_node_property_values(node_property_values,
         sorted_values = node_property_values[shuffled_sorted_node_indices]
         return init_config_switched, sorted_values
     return init_config_switched
+
 
 def init_config_with_dens(N, dens, rng=None):
     """
@@ -143,18 +148,20 @@ def init_config_with_dens(N, dens, rng=None):
     numpy.ndarray: A shuffled array of size N with the specified density of ones.
     """
     s0 = np.zeros(N, dtype=int)
-    s0[:np.round(dens*N).astype(int)] = 1.
+    s0[: np.round(dens * N).astype(int)] = 1.0
     if rng is None:
         np.random.shuffle(s0)
     else:
         rng.shuffle(s0)
     return s0
 
-#%% helper functions
+
+# %% helper functions
+
 
 def _random_ones_arrays(size: int, num_arrays: int, ones_per_array: int) -> NDArray:
     """
-    Generates N arrays of given size, each containing a specified number of ones 
+    Generates N arrays of given size, each containing a specified number of ones
     at unique positions per row, ensuring rows are not identical.
     NOTE: made with ChatGPT
 
@@ -183,7 +190,9 @@ def _random_ones_arrays(size: int, num_arrays: int, ones_per_array: int) -> NDAr
 
     for i in range(num_arrays):
         while True:
-            indices = tuple(sorted(np.random.choice(size, ones_per_array, replace=False)))  # Unique positions as a tuple
+            indices = tuple(
+                sorted(np.random.choice(size, ones_per_array, replace=False))
+            )  # Unique positions as a tuple
             if indices not in unique_rows:
                 unique_rows.add(indices)
                 break  # Found a unique row
@@ -191,4 +200,3 @@ def _random_ones_arrays(size: int, num_arrays: int, ones_per_array: int) -> NDAr
         arr[i, list(indices)] = 1  # Set ones at selected positions
 
     return arr
-

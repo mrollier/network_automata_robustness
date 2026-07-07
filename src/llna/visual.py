@@ -1,58 +1,61 @@
-import numpy as np
-import matplotlib.pyplot as plt
 import igraph as ig
-
 import matplotlib.animation as animation
-from matplotlib.colors import ListedColormap
-from IPython.display import HTML
+import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib import rcParams
+from matplotlib.colors import ListedColormap
 
 
 def raise_animation_embed_limit(megabytes: int = 256):
     """Allow larger animations to be embedded in notebooks. Called by the
     animation helpers below; importing this module has no rcParams side effect."""
-    rcParams['animation.embed_limit'] = megabytes
+    rcParams["animation.embed_limit"] = megabytes
+
 
 # %% COLOURS
+
 
 # https://styleguide.ugent.be/basic-principles/colours.html
 def get_ugent_colors_dict():
     ugent_colors = {
-    'ugent_blue': '#1E64C8',
-    'ugent_yellow': '#FFD200',
-    'ugent_white': '#FFFFFF',
-    'ugent_black': '#000000',
-    'lw_yellow': '#F1A42B',     # Faculty of Arts and Philosophy
-    're_red': '#DC4E28',        # Faculty of Law and Criminology
-    'we_aqua': '#2D8CA8',       # Faculty of Sciences
-    'ge_pink': '#E85E71',       # Faculty of Medicine and Health Sciences
-    'ea_blue': '#8BBEE8',       # Faculty of Engineering and Architecture
-    'eb_green': '#AEB050',      # Faculty of Economics and Business Administration
-    'di_purple': '#825491',     # Faculty of Veterinary Medicine
-    'pp_orange': '#FB7E3A',     # Faculty of Psychology and Educational Sciences
-    'bw_turquoise': '#27ABAD',  # Faculty of Bioscience Engineering
-    'fw_purple': '#BE5190',     # Faculty of Pharmaceutical Sciences
-    'ps_green': '#71A860'       # Faculty of Political and Social Sciences
+        "ugent_blue": "#1E64C8",
+        "ugent_yellow": "#FFD200",
+        "ugent_white": "#FFFFFF",
+        "ugent_black": "#000000",
+        "lw_yellow": "#F1A42B",  # Faculty of Arts and Philosophy
+        "re_red": "#DC4E28",  # Faculty of Law and Criminology
+        "we_aqua": "#2D8CA8",  # Faculty of Sciences
+        "ge_pink": "#E85E71",  # Faculty of Medicine and Health Sciences
+        "ea_blue": "#8BBEE8",  # Faculty of Engineering and Architecture
+        "eb_green": "#AEB050",  # Faculty of Economics and Business Administration
+        "di_purple": "#825491",  # Faculty of Veterinary Medicine
+        "pp_orange": "#FB7E3A",  # Faculty of Psychology and Educational Sciences
+        "bw_turquoise": "#27ABAD",  # Faculty of Bioscience Engineering
+        "fw_purple": "#BE5190",  # Faculty of Pharmaceutical Sciences
+        "ps_green": "#71A860",  # Faculty of Political and Social Sciences
     }
     return ugent_colors
 
+
 def get_ugent_cmap():
     ugent_colors_dict = get_ugent_colors_dict()
-    ugent_white = ugent_colors_dict['ugent_white']
-    ugent_blue = ugent_colors_dict['ugent_blue']
+    ugent_white = ugent_colors_dict["ugent_white"]
+    ugent_blue = ugent_colors_dict["ugent_blue"]
     cmap = ListedColormap([ugent_white, ugent_blue])  # 0: white, 1: blue
     return cmap
 
+
 # %% ANIMATIONS
 
-def make_animation_object(grids, title=None, cmap='Greys'):
+
+def make_animation_object(grids, title=None, cmap="Greys"):
     """
     Creates an animation object for visualizing a sequence of 2D grids.
 
     Parameters:
     -----------
     grids : numpy.ndarray
-        A 3D array where the first dimension represents time steps, and the 
+        A 3D array where the first dimension represents time steps, and the
         subsequent dimensions represent the 2D grid at each time step.
     title : str, optional
         The title to display on the animation frames. Default is None.
@@ -73,19 +76,23 @@ def make_animation_object(grids, title=None, cmap='Greys'):
     # change spine width
     for spine in ax.spines.values():
         spine.set_linewidth(3)
+
     # Update function for animation
     def update(frame):
         im.set_array(grids[frame])
         ax.set_title(title, fontsize=20)
-        ax.set_xticks([]); ax.set_yticks([])
+        ax.set_xticks([])
+        ax.set_yticks([])
         return [im]
+
     # Create animation
     raise_animation_embed_limit()
     ani = animation.FuncAnimation(fig, update, frames=T, interval=100)
     plt.close()
     return ani
 
-def make_animation_density_evolution(timesteps, configs, title=None, plotcolor='k', vertical_color='k'):
+
+def make_animation_density_evolution(timesteps, configs, title=None, plotcolor="k", vertical_color="k"):
     """
     Creates an animated plot showing the evolution of the global state density over time.
 
@@ -117,12 +124,12 @@ def make_animation_density_evolution(timesteps, configs, title=None, plotcolor='
     # find number of time steps
     T = len(timesteps)
     # calculate means
-    config_means = np.mean(configs, axis=(1,2))
+    config_means = np.mean(configs, axis=(1, 2))
     # Set up figure
     fig, ax = plt.subplots(figsize=(7, 5))
     ax.plot(timesteps, config_means, color=plotcolor, linewidth=2, zorder=0)
     sc = ax.scatter(timesteps[0], config_means[0], color=vertical_color, s=100, zorder=1)
-    vline = ax.axvline(x=timesteps[0], color=vertical_color, linestyle='--', linewidth=2, zorder=2)
+    vline = ax.axvline(x=timesteps[0], color=vertical_color, linestyle="--", linewidth=2, zorder=2)
     # change spine width
     for spine in ax.spines.values():
         spine.set_linewidth(3)
@@ -141,17 +148,20 @@ def make_animation_density_evolution(timesteps, configs, title=None, plotcolor='
         # ticks and range
         ax.set_xticks([])
         ax.set_yticks([])
-        ax.set_ylim([-0.05,1.05])
-        ax.set_ylabel(f"Global state density", fontsize=35)
+        ax.set_ylim([-0.05, 1.05])
+        ax.set_ylabel("Global state density", fontsize=35)
         return [sc]
-    
+
     # Create animation
     raise_animation_embed_limit()
     ani = animation.FuncAnimation(fig, update, frames=T, interval=100)
     plt.close()
     return ani
 
-def make_igraph_animation(graph, vertex_colors_over_time, vertex_size=25, layout=None, title=None, interval=300):
+
+def make_igraph_animation(
+    graph, vertex_colors_over_time, vertex_size=25, layout=None, title=None, interval=300
+):
     """
     Creates an animation of an igraph graph with changing vertex colors.
 
@@ -179,7 +189,7 @@ def make_igraph_animation(graph, vertex_colors_over_time, vertex_size=25, layout
         layout = graph.layout("fr")  # Fruchterman-Reingold layout
 
     num_frames = len(vertex_colors_over_time)
-    
+
     fig, ax = plt.subplots(figsize=(15, 10))
     plot_obj = None
 
@@ -198,20 +208,22 @@ def make_igraph_animation(graph, vertex_colors_over_time, vertex_size=25, layout
             vertex_size=vertex_size,
             vertex_label=None,
             vertex_frame_width=2,
-            edge_width=2
+            edge_width=2,
         )
         if title:
             ax.set_title(f"{title} (Frame {frame})", fontsize=16)
-        ax.set_xticks([]); ax.set_yticks([])
+        ax.set_xticks([])
+        ax.set_yticks([])
         for spine in ax.spines.values():
             spine.set_linewidth(2)
 
-        return plot_obj,
+        return (plot_obj,)
 
     raise_animation_embed_limit()
     ani = animation.FuncAnimation(fig, update, frames=num_frames, interval=interval)
     plt.close()
     return ani
+
 
 def add_pauses(grids, pause_every=8, pause_length=5):
     """
@@ -233,6 +245,7 @@ def add_pauses(grids, pause_every=8, pause_length=5):
                 new_grids.append(frame)
     return np.array(new_grids)
 
+
 def get_heart_shaped_grid():
     """
     Generate a 2D numpy array representing a heart-shaped grid.
@@ -240,17 +253,19 @@ def get_heart_shaped_grid():
     Returns:
         numpy.ndarray: A binary grid (1s and 0s) in the shape of a heart.
     """
-    heart_shape = np.array([
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0],
-        [0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0],
-        [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-        [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-        [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
-        [0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0],
-        [0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    ])
+    heart_shape = np.array(
+        [
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0],
+            [0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0],
+            [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+            [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+            [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+            [0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0],
+            [0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        ]
+    )
     return heart_shape

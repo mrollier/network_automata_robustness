@@ -6,8 +6,8 @@ import igraph as ig
 import numpy as np
 import pytest
 import torch as tc
-
 from capture_fixtures import RULE_BATTERY
+
 from llna.analysis import (
     _interval_encoding,
     boolean_sens,
@@ -123,8 +123,12 @@ def test_rule_metrics_both_implementations(fx):
         model = LLNA(res, b_set, s_set, iso=iso)
         for degree in [3, 4, 8]:
             hw_func = hamming_weight(res, b_set, s_set, degree, norm=True, iso=iso)
-            bs_func_norm = boolean_sens(res, b_set, s_set, degree, norm_degree=True, current_dens=0.5, iso=iso)
-            bs_func_raw = boolean_sens(res, b_set, s_set, degree, norm_degree=False, current_dens=0.5, iso=iso)
+            bs_func_norm = boolean_sens(
+                res, b_set, s_set, degree, norm_degree=True, current_dens=0.5, iso=iso
+            )
+            bs_func_raw = boolean_sens(
+                res, b_set, s_set, degree, norm_degree=False, current_dens=0.5, iso=iso
+            )
             assert hw_func == expected[i, 1], f"{name} degree {degree}"
             assert bs_func_norm == expected[i, 3], f"{name} degree {degree}"
             assert bs_func_raw == expected[i, 4], f"{name} degree {degree}"
@@ -159,7 +163,9 @@ def test_rule_enumeration(fx):
 
 def test_equivalent_rule_samples(fx):
     for res, beta, sigma, be_expected, se_expected in fx["rules_enum"]["equivalent_rule_samples"]:
-        be, se = return_equivalent_rule(int(res), binary_indices(int(beta)), binary_indices(int(sigma)), return_decimals=True)
+        be, se = return_equivalent_rule(
+            int(res), binary_indices(int(beta)), binary_indices(int(sigma)), return_decimals=True
+        )
         assert (be, se) == (be_expected, se_expected)
 
 

@@ -1,6 +1,6 @@
 """Mean-field density propagation of a local update rule."""
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import numpy as np
 from numpy.typing import NDArray
@@ -12,11 +12,11 @@ from llna.analysis._encoding import _interval_encoding
 
 def mean_field_dens_propagation(
     resolution: int,
-    B_set:Union[NDArray[np.int_], Sequence[int]],
-    S_set:Union[NDArray[np.int_], Sequence[int]],
-    current_dens:Union[float, NDArray],
-    degree:int,
-    iso:bool=True
+    B_set: NDArray[np.int_] | Sequence[int],
+    S_set: NDArray[np.int_] | Sequence[int],
+    current_dens: float | NDArray,
+    degree: int,
+    iso: bool = True,
 ) -> NDArray:
     """
     Calculates the average density of a randomly chosen neighbourhood (with a particular degree) at time step 1,
@@ -46,14 +46,20 @@ def mean_field_dens_propagation(
     """
     # check that the input values make sense
     if (degree < 1) or (degree > 1022):
-        raise ValueError(f"Degree {degree} not allowed. The degree must be a non-zero natural number smaller than 1023.")
+        raise ValueError(
+            f"Degree {degree} not allowed. The degree must be a non-zero natural number smaller than 1023."
+        )
     if iso and resolution % 2 == 0:
-        raise ValueError(f"Resolution {resolution} is not possible when iso=True. Choose an odd positive integer.")
+        raise ValueError(
+            f"Resolution {resolution} is not possible when iso=True. Choose an odd positive integer."
+        )
     if (B_set and (np.max(B_set) >= resolution)) or (S_set and (np.max(S_set) >= resolution)):
         raise ValueError(f"Resolution {resolution} is to small for the provided update intervals.")
     current_dens = np.atleast_1d(current_dens)
     if (np.min(current_dens) < 0) or (np.max(current_dens) > 1):
-        raise ValueError(f"Average state density must be between 0 and 1. Now the maximum is {np.max(current_dens)} and the minimum is {np.max(current_dens)}.")
+        raise ValueError(
+            f"Average state density must be between 0 and 1. Now the maximum is {np.max(current_dens)} and the minimum is {np.max(current_dens)}."
+        )
 
     # find all the possible rho_i values for this degree
     rhos = np.linspace(0, 1, degree + 1)
@@ -72,14 +78,19 @@ def mean_field_dens_propagation(
     # return the next density and make sure it's between 0 and 1
     return np.clip(next_dens, 0, 1)
 
+
 def mean_field_slope(resolution, B_set, S_set, degree, rho_star=0.5, iso=True):
     # TODO this currently does not work well for rho_star 0 or rho_star 1 (division by zero)
     # TODO: add documentation
     # TODO: add numpy magic (right now it's slow)
     if (degree < 1) or (degree > 1022):
-        raise ValueError(f"Degree {degree} not allowed. The degree must be a non-zero natural number smaller than 1023.")
+        raise ValueError(
+            f"Degree {degree} not allowed. The degree must be a non-zero natural number smaller than 1023."
+        )
     if iso and resolution % 2 == 0:
-        raise ValueError(f"Resolution {resolution} is not possible when iso=True. Choose an odd positive integer.")
+        raise ValueError(
+            f"Resolution {resolution} is not possible when iso=True. Choose an odd positive integer."
+        )
     if (B_set and (np.max(B_set) >= resolution)) or (S_set and (np.max(S_set) >= resolution)):
         raise ValueError(f"Resolution {resolution} is to small for the provided update intervals.")
     if (rho_star < 0) or (rho_star > 1):
@@ -90,13 +101,23 @@ def mean_field_slope(resolution, B_set, S_set, degree, rho_star=0.5, iso=True):
     # check in which interval they are situated
     rho_intervals = _interval_encoding(resolution, rhos[np.newaxis, :], iso=iso)[0].argmax(axis=1)
     # find binomium elements
-    binomium_factor = np.array([comb(degree, q) for q in range(0, degree+1)])
+    binomium_factor = np.array([comb(degree, q) for q in range(0, degree + 1)])
     # find what this outputs to
     born_truthtable = np.array([int(rho in B_set) for rho in rho_intervals])
     survive_truthtable = np.array([int(rho in S_set) for rho in rho_intervals])
     # calculate the binomial probabilities for various sums q, based on the current average density
-    sum_prefactor_born = np.array([rho_star**(q - 1) * (1 - rho_star)**(degree - q) * (q - rho_star * (1 + degree)) for q in range(degree + 1)])
-    sum_prefactor_survive = np.array([rho_star**q * (1 - rho_star)**(degree - q - 1) * (1 + q - rho_star * (1 + degree)) for q in range(degree + 1)])
+    sum_prefactor_born = np.array(
+        [
+            rho_star ** (q - 1) * (1 - rho_star) ** (degree - q) * (q - rho_star * (1 + degree))
+            for q in range(degree + 1)
+        ]
+    )
+    sum_prefactor_survive = np.array(
+        [
+            rho_star**q * (1 - rho_star) ** (degree - q - 1) * (1 + q - rho_star * (1 + degree))
+            for q in range(degree + 1)
+        ]
+    )
     # calculate the weighted born and survive truthtables (based on probability of finding the central node alive)
     born_truthtable_weighted = born_truthtable * sum_prefactor_born
     survive_truthtable_weighted = survive_truthtable * sum_prefactor_survive
@@ -104,4 +125,3 @@ def mean_field_slope(resolution, B_set, S_set, degree, rho_star=0.5, iso=True):
     slope = np.sum(binomium_factor * (born_truthtable_weighted + survive_truthtable_weighted))
     # return the next density and make sure it's between 0 and 1
     return slope
-

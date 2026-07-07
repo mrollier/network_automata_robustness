@@ -28,8 +28,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_DIR = Path(os.environ.get("FIXTURE_DIR", Path(__file__).resolve().parent / "fixtures"))
 FIXTURE_DIR.mkdir(exist_ok=True, parents=True)
 
-from llna.automata import LLNA  # noqa: E402
 from llna.analysis import (  # noqa: E402
+    _interval_encoding,
     boolean_sens,
     calculate_Yt,
     derrida_map_analytical,
@@ -39,8 +39,8 @@ from llna.analysis import (  # noqa: E402
     lyapunov_spectrum,
     lyapunov_spectrum_analytical,
     mean_field_dens_propagation,
-    _interval_encoding,
 )
+from llna.automata import LLNA  # noqa: E402
 from llna.networks import create_2d_torus_lattice, watts_strogatz_rewire  # noqa: E402
 from llna.rules import (  # noqa: E402
     binary_indices,
@@ -211,8 +211,10 @@ def capture_jacobian_lyapunov(graphs: dict) -> None:
     out["Yt__states"] = states.astype(np.uint8)
     out["Yt__value"] = Yt
     out["Yt__lambdas"] = lambdas
-    print(f"  calculate_Yt: N={graph.vcount()} T=8, spectrum range "
-          f"[{np.min(lambdas[np.isfinite(lambdas)]):.3f}, {np.max(lambdas):.3f}]")
+    print(
+        f"  calculate_Yt: N={graph.vcount()} T=8, spectrum range "
+        f"[{np.min(lambdas[np.isfinite(lambdas)]):.3f}, {np.max(lambdas):.3f}]"
+    )
 
     # analytical constant-J ECA spectra
     for rule in [150, 90, 105, 60]:
@@ -229,7 +231,7 @@ def capture_rule_metrics() -> None:
     out = {}
     rows = []
     degrees = [3, 4, 8]
-    for name, res, b_set, s_set, iso in RULE_BATTERY:
+    for _name, res, b_set, s_set, iso in RULE_BATTERY:
         model = LLNA(res, b_set, s_set, iso=iso)
         for degree in degrees:
             hw_m = model.hamming_weight(degree, norm=True)
@@ -337,4 +339,4 @@ if __name__ == "__main__":
     capture_rng_contract()
     write_manifest()
     total = sum(f.stat().st_size for f in FIXTURE_DIR.glob("*"))
-    print(f"Done. Fixture dir size: {total/1024:.0f} KiB")
+    print(f"Done. Fixture dir size: {total / 1024:.0f} KiB")

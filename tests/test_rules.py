@@ -33,7 +33,9 @@ def test_equivalence_is_an_involution(res):
     rng = np.random.default_rng(res)
     for _ in range(50):
         beta, sigma = rng.integers(0, 2**res, size=2)
-        be, se = return_equivalent_rule(res, binary_indices(int(beta)), binary_indices(int(sigma)), return_decimals=True)
+        be, se = return_equivalent_rule(
+            res, binary_indices(int(beta)), binary_indices(int(sigma)), return_decimals=True
+        )
         b2, s2 = return_equivalent_rule(res, binary_indices(be), binary_indices(se), return_decimals=True)
         assert (b2, s2) == (int(beta), int(sigma))
 
@@ -47,7 +49,9 @@ def test_nonequiv_count_matches_closed_form(res, expected):
 def test_nonequiv_representatives_are_lexicographic_minima():
     for res in [2, 3]:
         for beta, sigma in get_nonequiv_rules(res):
-            be, se = return_equivalent_rule(res, binary_indices(beta), binary_indices(sigma), return_decimals=True)
+            be, se = return_equivalent_rule(
+                res, binary_indices(beta), binary_indices(sigma), return_decimals=True
+            )
             assert (beta, sigma) <= (be, se)
 
 
