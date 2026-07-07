@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from pathlib import Path
 
 import numpy as np
 from numpy.typing import NDArray
-from tqdm import tqdm
 
 
 def return_life_like_dict():
@@ -29,31 +29,58 @@ def return_life_like_dict():
     return life_like_dict
 
 
+def _bit_reverse_table(resolution: int) -> NDArray[np.int64]:
+    """rev[v] = v with its lowest `resolution` bits reversed, for all v < 2**resolution."""
+    values = np.arange(2**resolution, dtype=np.int64)
+    rev = np.zeros_like(values)
+    for i in range(resolution):
+        rev |= ((values >> i) & 1) << (resolution - 1 - i)
+    return rev
+
+
 def get_nonequiv_rules(resolution: int, return_self_equiv=False):
-    # takes a long time for large resolutions. Some of these lists have been saved elsewhere for easy loading.
-    betas = range(2**resolution)
-    sigmas = range(2**resolution)
-    equiv_rule_list = []
-    nonequiv_rule_list = []
-    self_equiv_rule_list = []
-    for beta in tqdm(betas, total=2**resolution):
-        born_if = binary_indices(beta)
-        for sigma in sigmas:
-            if (beta, sigma) not in equiv_rule_list:
-                born_if = binary_indices(beta)
-                survive_if = binary_indices(sigma)
-                # add the equivalent rule to the list
-                beta_equiv, sigma_equiv = return_equivalent_rule(
-                    resolution, born_if, survive_if, return_decimals=True
-                )
-                nonequiv_rule_list.append((beta, sigma))
-                if (beta, sigma) != (beta_equiv, sigma_equiv):
-                    equiv_rule_list.append((beta_equiv, sigma_equiv))
-                else:
-                    self_equiv_rule_list.append((beta, sigma))
+    """
+    Enumerate one representative (beta, sigma) per equivalence class of local
+    update rules, in ascending lexicographic order.
+
+    The equivalent of (beta, sigma) is (comp(rev(sigma)), comp(rev(beta)))
+    — mirror the interval sets, complement them, and swap B and S (see
+    return_equivalent_rule). The kept representative is the lexicographic
+    minimum of each pair, which reproduces the historical loop-based output
+    exactly (pinned by the characterization fixtures and the committed
+    resolution-9 table). Fully vectorised: resolution 9 takes milliseconds.
+    """
+    n = 2**resolution
+    mask = n - 1
+    rev = _bit_reverse_table(resolution)
+    beta = np.arange(n, dtype=np.int64)[:, None]
+    sigma = np.arange(n, dtype=np.int64)[None, :]
+    beta_equiv = rev[sigma] ^ mask  # complement of the mirrored S set
+    sigma_equiv = rev[beta] ^ mask  # complement of the mirrored B set
+    keep = (beta < beta_equiv) | ((beta == beta_equiv) & (sigma <= sigma_equiv))
+    nonequiv_rule_list = [(int(b), int(s)) for b, s in np.argwhere(keep)]
     if return_self_equiv:
+        self_equiv = (beta == beta_equiv) & (sigma == sigma_equiv)
+        self_equiv_rule_list = [(int(b), int(s)) for b, s in np.argwhere(self_equiv)]
         return nonequiv_rule_list, self_equiv_rule_list
     return nonequiv_rule_list
+
+
+def load_nonequiv_rules(resolution: int, cache_dir: str | Path | None = None) -> NDArray[np.int64]:
+    """
+    Non-equivalent rule table as an ndarray [K, 2], optionally cached on disk
+    as `{cache_dir}/all_nonequiv_res{resolution}_rules.npy` (the historical
+    file convention in data/rule_tables/).
+    """
+    if cache_dir is not None:
+        path = Path(cache_dir) / f"all_nonequiv_res{resolution}_rules.npy"
+        if path.exists():
+            return np.load(path)
+    table = np.array(get_nonequiv_rules(resolution), dtype=np.int64)
+    if cache_dir is not None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        np.save(path, table)
+    return table
 
 
 # Define a function that identifies equivalent update rule

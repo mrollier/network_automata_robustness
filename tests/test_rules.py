@@ -55,16 +55,24 @@ def test_nonequiv_representatives_are_lexicographic_minima():
             assert (beta, sigma) <= (be, se)
 
 
-def test_res9_rule_table_is_valid():
-    """The committed R=9 table: right count, unique, all lex-min representatives."""
+def test_res9_enumeration_reproduces_committed_table():
+    """The vectorised enumeration must reproduce the committed R=9 table
+    exactly, including order (the table was produced by the original
+    loop-based implementation over several hours)."""
     table = np.load(RULE_TABLE)
     assert table.shape == ((4**9 + 2**9) // 2, 2)
-    assert len(np.unique(table[:, 0] * 512 + table[:, 1])) == len(table)
-    rng = np.random.default_rng(0)
-    for i in rng.choice(len(table), size=500, replace=False):
-        beta, sigma = (int(v) for v in table[i])
-        be, se = return_equivalent_rule(9, binary_indices(beta), binary_indices(sigma), return_decimals=True)
-        assert (beta, sigma) <= (be, se)
+    computed = np.array(get_nonequiv_rules(9), dtype=np.int64)
+    assert np.array_equal(computed, table)
+
+
+def test_load_nonequiv_rules_cache_roundtrip(tmp_path):
+    from llna.rules import load_nonequiv_rules
+
+    first = load_nonequiv_rules(3, cache_dir=tmp_path)
+    assert (tmp_path / "all_nonequiv_res3_rules.npy").exists()
+    second = load_nonequiv_rules(3, cache_dir=tmp_path)
+    assert np.array_equal(first, second)
+    assert np.array_equal(first, np.array(get_nonequiv_rules(3), dtype=np.int64))
 
 
 def test_life_like_dict_encodings_valid():
