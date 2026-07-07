@@ -35,7 +35,7 @@ The statistics pool the final `delta_t` timesteps of every ensemble member
 | File | Provenance |
 |---|---|
 | `results_{random,small-world,toroidal-lattice}.h5` | **Legacy (2025)**, produced by the historical CLI whose ensemble statistics pooled the wrong axis (last `delta_t` ensemble *members* including transients, instead of last `delta_t` *timesteps*; fixed 2026-07). Kept byte-identical because the manuscript figure currently reads them. |
-| `regenerated_2026/results_*.h5` | Regenerated with `llna sweep` (fixed statistics, seed 42, batched engine). Carry full provenance attrs: parameters, seed, git commit, llna version, timestamps. Pending sign-off before the manuscript notebook switches over. |
+| `regenerated_2026/results_*.h5` | Regenerated with `llna sweep` (fixed statistics, seed 42, batched engine). Carry full provenance attrs: parameters, seed, git commit, llna version, timestamps. **The manuscript notebook reads these since 2026-07-07** (approved swap); `regenerated_2026/comparison_legacy_vs_2026.png` visualises the per-rule deltas (corr 0.98–0.997; a few long-transient rules shift by up to ~0.47 in defect median — the legacy statistics pooled the wrong axis for exactly such rules). |
 | `state-median-vs-defect-median.h5` | Written by `experiments/state-vs-defect-density.ipynb` (resolution 3). |
 
 Regeneration one-liner per network type:
