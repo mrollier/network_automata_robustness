@@ -31,8 +31,18 @@ def create_2d_torus_lattice(L, degree=8):
     g.add_edges(edges)
     return g
 
-def watts_strogatz_rewire(g, p):
-    """Rewire edges in a copy of graph g with probability p (Watts-Strogatz style)."""
+def watts_strogatz_rewire(g, p, rng=None):
+    """Rewire edges in a copy of graph g with probability p (Watts-Strogatz style).
+
+    Parameters
+    ----------
+    rng : optional
+        Source of randomness exposing .random() and .choice(sequence), e.g. a
+        seeded random.Random instance. Defaults to the global random module
+        (reproducible via random.seed).
+    """
+    if rng is None:
+        rng = random
     if not g.is_connected():
         raise ValueError("Input graph must be connected.")
     try_counter = 0
@@ -43,14 +53,14 @@ def watts_strogatz_rewire(g, p):
         n = len(g_copy.vs)  # Number of vertices in the graph
         edges_to_rewire = list(g_copy.get_edgelist())  # Get the list of all edges
         for edge in edges_to_rewire:
-            if random.random() < p:  # With probability p, rewire the edge
+            if rng.random() < p:  # With probability p, rewire the edge
                 source, target = edge
                 g_copy.delete_edges([edge])  # Remove the current edge
-                
+
                 # Avoid self-loops and existing edges
                 possible_targets = set(range(n)) - {source} - set(g_copy.neighbors(source))
                 if possible_targets:
-                    new_target = random.choice(list(possible_targets))  # Choose a new target randomly
+                    new_target = rng.choice(list(possible_targets))  # Choose a new target randomly
                     g_copy.add_edges([(source, new_target)])  # Add the new edge
                 else:
                     raise ValueError(f"No possible target for moving the edge from node {source}.")

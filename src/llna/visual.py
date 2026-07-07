@@ -6,7 +6,12 @@ import matplotlib.animation as animation
 from matplotlib.colors import ListedColormap
 from IPython.display import HTML
 from matplotlib import rcParams
-rcParams['animation.embed_limit'] = 256  # Set a higher limit for embedding animations
+
+
+def raise_animation_embed_limit(megabytes: int = 256):
+    """Allow larger animations to be embedded in notebooks. Called by the
+    animation helpers below; importing this module has no rcParams side effect."""
+    rcParams['animation.embed_limit'] = megabytes
 
 # %% COLOURS
 
@@ -75,6 +80,7 @@ def make_animation_object(grids, title=None, cmap='Greys'):
         ax.set_xticks([]); ax.set_yticks([])
         return [im]
     # Create animation
+    raise_animation_embed_limit()
     ani = animation.FuncAnimation(fig, update, frames=T, interval=100)
     plt.close()
     return ani
@@ -140,6 +146,7 @@ def make_animation_density_evolution(timesteps, configs, title=None, plotcolor='
         return [sc]
     
     # Create animation
+    raise_animation_embed_limit()
     ani = animation.FuncAnimation(fig, update, frames=T, interval=100)
     plt.close()
     return ani
@@ -201,6 +208,7 @@ def make_igraph_animation(graph, vertex_colors_over_time, vertex_size=25, layout
 
         return plot_obj,
 
+    raise_animation_embed_limit()
     ani = animation.FuncAnimation(fig, update, frames=num_frames, interval=interval)
     plt.close()
     return ani
