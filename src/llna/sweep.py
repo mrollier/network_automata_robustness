@@ -103,3 +103,64 @@ def evolve_rules_batch(
                 out[:, :, t] = h.to(tc.uint8)
         outputs.append(out.cpu().numpy())
     return np.concatenate(outputs, axis=0)
+
+
+def evolve_defect_pairs(
+    edge_index,
+    init_configs,
+    defected_configs,
+    rules: Sequence[tuple[int, int]] | np.ndarray,
+    resolution: int,
+    iso: bool = True,
+    T: int = 100,
+    device: str = "cpu",
+    rule_chunk: int | None = None,
+    progress: bool = False,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Evolve clean and defected twins of each configuration in lockstep.
+
+    Returns
+    -------
+    (state_means, defect_means) : float32 arrays [K, L, T+1]
+        Per-step node-mean of the clean state and of the clean-vs-defected
+        disagreement (the defect density) — the state/defect convergence
+        workload of the manuscript. Memory stays O(K*L*N) because the XOR
+        reduction happens per step instead of on stored trajectories.
+    """
+    dev = tc.device(device)
+    edge_index = tc.as_tensor(np.asarray(edge_index), dtype=tc.long)
+    clean0 = tc.as_tensor(np.asarray(init_configs), dtype=tc.float32)
+    defect0 = tc.as_tensor(np.asarray(defected_configs), dtype=tc.float32)
+    if clean0.shape != defect0.shape or clean0.dim() != 2:
+        raise ValueError("init_configs and defected_configs must both be [L, N].")
+    L, N = clean0.shape
+    rules = np.asarray(rules, dtype=np.int64)
+    K = len(rules)
+
+    conn = GraphConnectivity(edge_index, num_nodes=N).to(dev)
+    clean0, defect0 = clean0.to(dev), defect0.to(dev)
+    if rule_chunk is None:
+        rule_chunk = auto_rule_chunk(K, 2 * L, N)
+
+    state_out, defect_out = [], []
+    chunk_starts = range(0, K, rule_chunk)
+    if progress:
+        chunk_starts = tqdm(chunk_starts, desc=f"rule chunks (x{rule_chunk})")
+    for start in chunk_starts:
+        chunk = rules[start : start + rule_chunk]
+        k = len(chunk)
+        born, survive = rule_tables(chunk, resolution, device=dev)
+        h_clean = clean0.unsqueeze(0).expand(k, L, N).clone()
+        h_defect = defect0.unsqueeze(0).expand(k, L, N).clone()
+        states = tc.empty((k, L, T + 1), dtype=tc.float32, device=dev)
+        defects = tc.empty((k, L, T + 1), dtype=tc.float32, device=dev)
+        states[:, :, 0] = h_clean.mean(dim=-1)
+        defects[:, :, 0] = (h_clean != h_defect).to(tc.float32).mean(dim=-1)
+        for t in range(1, T + 1):
+            h_clean = step_batch(h_clean, conn, born, survive, resolution, iso)
+            h_defect = step_batch(h_defect, conn, born, survive, resolution, iso)
+            states[:, :, t] = h_clean.mean(dim=-1)
+            defects[:, :, t] = (h_clean != h_defect).to(tc.float32).mean(dim=-1)
+        state_out.append(states.cpu().numpy())
+        defect_out.append(defects.cpu().numpy())
+    return np.concatenate(state_out, axis=0), np.concatenate(defect_out, axis=0)

@@ -23,6 +23,9 @@ dependencies = [
     "cellpylib",
 ]
 
+[project.scripts]
+llna = "llna.cli:main"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8",

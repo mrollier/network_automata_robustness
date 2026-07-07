@@ -34,7 +34,9 @@ class GraphConnectivity:
         self.dst = edge_index[1]
         self.num_nodes = int(edge_index.max().item()) + 1 if num_nodes is None else num_nodes
         in_degree = tc.zeros(self.num_nodes, dtype=tc.float32, device=edge_index.device)
-        in_degree.index_add_(0, self.dst, tc.ones(self.dst.numel(), dtype=tc.float32, device=edge_index.device))
+        in_degree.index_add_(
+            0, self.dst, tc.ones(self.dst.numel(), dtype=tc.float32, device=edge_index.device)
+        )
         # isolated nodes get density 0 (the message-passing mean convention)
         self.safe_degree = in_degree.clamp(min=1.0)
 
@@ -112,7 +114,9 @@ def rule_tables(rules, resolution: int, device="cpu") -> tuple[tc.Tensor, tc.Ten
     return born, survive
 
 
-def step_batch(h: tc.Tensor, conn, born: tc.Tensor, survive: tc.Tensor, resolution: int, iso: bool) -> tc.Tensor:
+def step_batch(
+    h: tc.Tensor, conn, born: tc.Tensor, survive: tc.Tensor, resolution: int, iso: bool
+) -> tc.Tensor:
     """One synchronous update of K rules in lockstep.
 
     Parameters
