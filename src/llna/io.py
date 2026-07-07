@@ -66,7 +66,7 @@ class SweepFile:
                 grp.create_dataset(name, shape=(len(rules), *suffix), dtype=dtype, compression="gzip")
             grp.attrs["params"] = json.dumps(attrs, default=str)
             for key, value in attrs.items():
-                if isinstance(value, (int, float, str, bool)):
+                if isinstance(value, int | float | str | bool):
                     grp.attrs[key] = value
             grp.attrs["llna_version"] = __import__("llna").__version__
             grp.attrs["git_commit"] = git_commit_or_unknown()

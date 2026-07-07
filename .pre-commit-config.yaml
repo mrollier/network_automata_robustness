@@ -1,0 +1,28 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.6
+    hooks:
+      # .py files only: research notebooks are working documents and are
+      # deliberately not linted or reformatted by hooks
+      - id: ruff
+        types_or: [python, pyi]
+        args: [--fix]
+      - id: ruff-format
+        types_or: [python, pyi]
+
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.8.1
+    hooks:
+      - id: nbstripout
+        # research notebooks in these directories never commit outputs;
+        # manuscript/ and notebooks/ keep theirs (rendered products)
+        files: ^(experiments|archive)/.*\.ipynb$
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+        args: [--maxkb=5000]
+      - id: check-merge-conflict
+      - id: end-of-file-fixer
+        exclude: (^legacy/|\.(ipynb|npz|npy|h5|pdf|png|bib)$)
