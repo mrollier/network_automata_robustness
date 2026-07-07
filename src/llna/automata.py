@@ -5,8 +5,9 @@ import numpy as np
 
 # special packages
 import torch as tc
-import torch_geometric as tg
 from scipy.special import comb
+
+from llna.engine import neighbor_density
 
 # %% define class
 
@@ -14,7 +15,6 @@ from scipy.special import comb
 class LLNA(tc.nn.Module):
     def __init__(self, resolution: int, x: list = None, y: list = None, iso: bool = False):
         super().__init__()
-        self.conv_gnn = tg.nn.conv.SimpleConv(aggr="mean", combine_root=None)
         if iso and not self._is_odd_integer(resolution):
             raise ValueError(f"The resolution {resolution} is not an odd integer.")
         self._iso = iso
@@ -79,7 +79,7 @@ class LLNA(tc.nn.Module):
 
     def step(self, E: tc.Tensor, h: tc.Tensor):
         h = tc.atleast_2d(h)
-        p = self.conv_gnn(h.T, E).T
+        p = neighbor_density(h, E)
         R = self.interval_encoding(p)
         # born
         b = tc.matmul(R, self._x).squeeze(2) * (1 - h)

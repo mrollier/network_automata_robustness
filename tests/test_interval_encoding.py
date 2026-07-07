@@ -6,8 +6,35 @@ import torch as tc
 
 from llna.analysis import _interval_encoding
 from llna.automata import LLNA
+from llna.engine import interval_index
 
 CASES = [(2, False), (3, False), (3, True), (5, True), (9, False), (9, True)]
+
+
+@pytest.mark.parametrize("res,iso", CASES)
+def test_engine_interval_index_matches_onehot_argmax(res, iso):
+    """The batched engine's integer index must agree with argmax of the
+    torch one-hot on every density, including exact boundaries and their
+    nearest float32 neighbours (the batched sweep's exactness depends on it)."""
+    bounds = np.arange(res + 1, dtype=np.float32) / res
+    grid = np.unique(
+        np.clip(
+            np.concatenate(
+                [
+                    np.linspace(0, 1, 2001, dtype=np.float32),
+                    bounds,
+                    np.nextafter(bounds, np.float32(-1.0)),
+                    np.nextafter(bounds, np.float32(2.0)),
+                ]
+            ),
+            0.0,
+            1.0,
+        )
+    )
+    p = tc.tensor(grid, dtype=tc.float32).unsqueeze(0)
+    model = LLNA(res, [0], [0], iso=iso)
+    onehot_argmax = model.interval_encoding(p).argmax(dim=2)
+    assert tc.equal(interval_index(p, res, iso), onehot_argmax)
 
 
 @pytest.mark.parametrize("res,iso", CASES)
