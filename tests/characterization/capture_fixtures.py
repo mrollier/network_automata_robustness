@@ -15,6 +15,7 @@ validity does not depend on graph-generator determinism.
 """
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -24,12 +25,11 @@ import numpy as np
 import torch as tc
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO_ROOT))
-FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures"
-FIXTURE_DIR.mkdir(exist_ok=True)
+FIXTURE_DIR = Path(os.environ.get("FIXTURE_DIR", Path(__file__).resolve().parent / "fixtures"))
+FIXTURE_DIR.mkdir(exist_ok=True, parents=True)
 
-from src.automata import LLNA  # noqa: E402
-from src.analysis import (  # noqa: E402
+from llna.automata import LLNA  # noqa: E402
+from llna.analysis import (  # noqa: E402
     boolean_sens,
     calculate_Yt,
     derrida_map_analytical,
@@ -41,8 +41,8 @@ from src.analysis import (  # noqa: E402
     mean_field_dens_propagation,
     _interval_encoding,
 )
-from src.networks import create_2d_torus_lattice, watts_strogatz_rewire  # noqa: E402
-from src.rules import (  # noqa: E402
+from llna.networks import create_2d_torus_lattice, watts_strogatz_rewire  # noqa: E402
+from llna.rules import (  # noqa: E402
     binary_indices,
     bw_symmetric_eca,
     eca_is_llna,

@@ -22,19 +22,13 @@ rcParams.update({
 
 from tqdm import tqdm
 
-import sys, os
-current_dir = os.getcwd()
-parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
-sys.path.append(parent_dir)
-
 # compact saving of data
 import h5py
 
-from src.automata import LLNA
-from src.simulation import *
-from src.rules import binary_indices, get_nonequiv_rules
-from src.networks import create_2d_torus_lattice, watts_strogatz_rewire
-from src.analysis import median_and_percentiles_over_ensemble
+from llna.automata import LLNA
+from llna.rules import binary_indices, get_nonequiv_rules
+from llna.networks import create_2d_torus_lattice, watts_strogatz_rewire
+from llna.analysis import median_and_percentiles_over_ensemble
 
 # %load_ext autoreload
 # %autoreload 2

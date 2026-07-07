@@ -18,8 +18,8 @@ from scipy.stats import binom, hypergeom
 import warnings
 
 # particular packages
-from src.automata import LLNA
-from src.rules import _is_eca
+from llna.automata import LLNA
+from llna.rules import _is_eca
 import cellpylib as cpl
 
 # %% utilitary functions
