@@ -1,10 +1,12 @@
-"""Pin the median_and_percentiles_over_ensemble time-axis contract.
+"""The median_and_percentiles_over_ensemble time-axis contract.
 
-The function slices `arrays[-delta_t:]`, i.e. it assumes TIME IS AXIS 0.
-The manuscript notebooks pass [T, ensemble] (correct). The state-vs-defect
-CLI passed [ensemble, T], silently computing statistics over the last
-delta_t ensemble members including all transients — the results_*.h5 files
-were generated that way (regeneration is gated in Phase 7).
+The function slices `arrays[-delta_t:]`: time runs along `time_axis`
+(default 0). The manuscript notebooks pass [T, ensemble] (default is
+correct for them). The state-vs-defect CLI historically passed
+[ensemble, T] without transposing, silently computing statistics over the
+last delta_t ensemble members including all transients — the committed
+results_*.h5 files were generated that way (regeneration gated in Phase 7).
+The CLI now passes time_axis=1.
 """
 
 import numpy as np
@@ -27,14 +29,14 @@ def test_time_first_input_finds_convergence_value(converged_ensemble):
     assert median == q1 == q3 == 0.7
 
 
-@pytest.mark.xfail(
-    reason="CLI call site passes [ensemble, T]; function slices axis 0 -> stats "
-    "over members incl. transients. Phase 5 adds an explicit time_axis contract.",
-    strict=True,
-)
-def test_ensemble_first_input_finds_convergence_value(converged_ensemble):
-    median, _, _ = median_and_percentiles_over_ensemble(converged_ensemble, delta_t=5)
-    assert median == 0.7
+def test_ensemble_first_input_with_explicit_time_axis(converged_ensemble):
+    median, q1, q3 = median_and_percentiles_over_ensemble(converged_ensemble, delta_t=5, time_axis=1)
+    assert median == q1 == q3 == 0.7
+
+
+def test_time_axis_must_be_0_or_1(converged_ensemble):
+    with pytest.raises(ValueError):
+        median_and_percentiles_over_ensemble(converged_ensemble, delta_t=5, time_axis=2)
 
 
 def test_rejects_wrong_dimensionality():

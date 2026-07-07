@@ -760,9 +760,14 @@ def lyapunov_spectrum_analytical(
 
     k_values = np.arange(N)
     eigenvalues = cc0 + 2 * cc1 * np.cos(2 * k_values * np.pi / N) + 2 * cc2 * np.cos(4 * k_values * np.pi / N)
-    if np.any(eigenvalues) < 0:
-        raise ValueError("Due to a numerical error, there are negative values among the eigenvalues.")
-    singular_values = np.sqrt(eigenvalues)
+    # The eigenvalues are squared magnitudes of the circulant symbol, hence
+    # mathematically >= 0. Where the symbol has an exact zero (e.g. rules
+    # 150/105 with N divisible by 3), rounding can leave -eps: clamp it
+    # instead of letting sqrt produce NaN. Anything beyond rounding error
+    # means the constant-Jacobian assumption is broken.
+    if np.any(eigenvalues < -1e-9):
+        raise ValueError("Genuinely negative eigenvalues: the constant-Jacobian assumption is violated.")
+    singular_values = np.sqrt(np.clip(eigenvalues, 0.0, None))
     # eliminate singular values of zero (and negative ones from numerical problems)
     nonzero_singular_values = singular_values[singular_values>0]
     lyapunov_values = np.log(nonzero_singular_values)
@@ -966,14 +971,28 @@ def eca_has_constantJ(eca:int) -> bool:
         return False
     return True
 
-def median_and_percentiles_over_ensemble(arrays, delta_t, lower_percentile=0.25, upper_percentile=0.75):
+def median_and_percentiles_over_ensemble(arrays, delta_t, lower_percentile=0.25, upper_percentile=0.75,
+                                         time_axis=0):
     """
-    Simple function to find the convergence value of an ensemble of time series
+    Find the convergence value of an ensemble of time series: pool the final
+    `delta_t` timesteps of every ensemble member and return median + quantiles.
+
+    Parameters
+    ----------
+    arrays : numpy.ndarray
+        2D array of time series. Time runs along `time_axis` (default 0,
+        i.e. shape [T, ensemble]); pass time_axis=1 for [ensemble, T] input.
+    delta_t : int
+        Number of final timesteps considered converged.
     """
     if arrays.ndim != 2:
         raise ValueError(f"The input array has {arrays.ndim} dimensions instead of 2.")
     if (lower_percentile > 0.5) or (upper_percentile < 0.5):
         raise ValueError("The median is not within the percentiles.")
+    if time_axis not in (0, 1):
+        raise ValueError(f"time_axis must be 0 or 1, got {time_axis}.")
+    if time_axis == 1:
+        arrays = arrays.T
     final_timesteps = arrays[-delta_t:]
     # take median over all values (no distinction between time and ensemble dimension)
     median = np.median(final_timesteps)

@@ -73,14 +73,9 @@ def test_analytical_spectrum_never_returns_nan():
             assert not np.isnan(vals).any()
 
 
-@pytest.mark.xfail(
-    reason="dead guard `np.any(eigenvalues) < 0` lets -eps eigenvalues reach "
-    "sqrt, emitting RuntimeWarning; Phase 5 clamps them to zero",
-    strict=True,
-)
 def test_analytical_spectrum_emits_no_warning():
     """Eigenvalues are squared magnitudes of the circulant symbol, hence >= 0
-    mathematically; -epsilon rounding must be clamped, not pushed into sqrt."""
+    mathematically; -epsilon rounding is clamped instead of reaching sqrt."""
     import warnings
 
     with warnings.catch_warnings():

@@ -169,9 +169,9 @@ def main():
             # add these to the stack
             state_averages_stack = np.vstack((state_averages_stack, state_averages))
             defect_averages_stack = np.vstack((defect_averages_stack, defect_averages))
-        # get the median and IQR for the ensemble
-        state_median, state_q1, state_q3 = median_and_percentiles_over_ensemble(state_averages_stack, delta_t=delta_t)
-        defect_median, defect_q1, defect_q3 = median_and_percentiles_over_ensemble(defect_averages_stack, delta_t=delta_t)
+        # get the median and IQR for the ensemble (stacks are [ensemble, T+1])
+        state_median, state_q1, state_q3 = median_and_percentiles_over_ensemble(state_averages_stack, delta_t=delta_t, time_axis=1)
+        defect_median, defect_q1, defect_q3 = median_and_percentiles_over_ensemble(defect_averages_stack, delta_t=delta_t, time_axis=1)
         # append to lists
         state_medians_per_rule.append(state_median)
         state_q1_per_rule.append(state_q1)
