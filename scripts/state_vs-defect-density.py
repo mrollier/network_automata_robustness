@@ -28,7 +28,7 @@ import h5py
 from llna.automata import LLNA
 from llna.rules import binary_indices, get_nonequiv_rules
 from llna.networks import create_2d_torus_lattice, watts_strogatz_rewire
-from llna.analysis import median_and_percentiles_over_ensemble
+from llna.analysis import init_config_with_dens, median_and_percentiles_over_ensemble
 
 # %load_ext autoreload
 # %autoreload 2
@@ -122,13 +122,6 @@ def main():
     # %% RUN OVER RULES
 
     beta_sigma_list = get_nonequiv_rules(resolution)
-
-    def init_config_with_dens(N, dens):
-        # defines a random initial configuration with a fixed state density
-        s0 = np.zeros(N, dtype=int)
-        s0[:np.round(dens * N).astype(int)] = 1
-        np.random.shuffle(s0)
-        return s0
 
     # open new lists. These will have dimensions [rules]
     state_medians_per_rule = []

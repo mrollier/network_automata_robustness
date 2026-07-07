@@ -111,22 +111,25 @@ def test_analytical_spectra(fx):
 
 
 def test_rule_metrics_both_implementations(fx):
+    """The numpy analysis functions are the canonical implementation and must
+    reproduce their fixture columns exactly. The LLNA methods delegate to them
+    since Phase 5, so method == function; the old torch-encoding method values
+    (columns hw_method / bs_method) remain in the fixture as a historical
+    record of the float32-boundary behaviour but are no longer a contract."""
     d = fx["rule_metrics"]
     expected = d["values"]
     i = 0
     for name, res, b_set, s_set, iso in RULE_BATTERY:
         model = LLNA(res, b_set, s_set, iso=iso)
         for degree in [3, 4, 8]:
-            row = np.array(
-                [
-                    model.hamming_weight(degree, norm=True),
-                    hamming_weight(res, b_set, s_set, degree, norm=True, iso=iso),
-                    model.boolean_sens(degree, norm_degree=True),
-                    boolean_sens(res, b_set, s_set, degree, norm_degree=True, current_dens=0.5, iso=iso),
-                    boolean_sens(res, b_set, s_set, degree, norm_degree=False, current_dens=0.5, iso=iso),
-                ]
-            )
-            assert np.array_equal(row, expected[i]), f"{name} degree {degree}"
+            hw_func = hamming_weight(res, b_set, s_set, degree, norm=True, iso=iso)
+            bs_func_norm = boolean_sens(res, b_set, s_set, degree, norm_degree=True, current_dens=0.5, iso=iso)
+            bs_func_raw = boolean_sens(res, b_set, s_set, degree, norm_degree=False, current_dens=0.5, iso=iso)
+            assert hw_func == expected[i, 1], f"{name} degree {degree}"
+            assert bs_func_norm == expected[i, 3], f"{name} degree {degree}"
+            assert bs_func_raw == expected[i, 4], f"{name} degree {degree}"
+            assert model.hamming_weight(degree, norm=True) == hw_func
+            assert model.boolean_sens(degree, norm_degree=True) == bs_func_norm
             i += 1
 
 
