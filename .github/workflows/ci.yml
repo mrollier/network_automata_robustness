@@ -27,3 +27,8 @@ jobs:
         run: ruff check src tests scripts
       - name: Test
         run: pytest -q
+      - name: Execute teaching notebooks
+        run: |
+          jupyter nbconvert --to notebook --execute --stdout \
+            notebooks/01_llna_basics.ipynb notebooks/02_rule_space.ipynb \
+            notebooks/03_robustness_metrics.ipynb > /dev/null
