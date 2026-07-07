@@ -1,0 +1,9 @@
+{
+  "captured_at_commit": "0b190d5d681f3cc2c154ce8354e24f4bdef2710f",
+  "python": "3.11.14",
+  "numpy": "1.26.4",
+  "torch": "2.7.0",
+  "torch_geometric": "2.7.0",
+  "igraph": "1.0.0",
+  "note": "Fixtures pin pre-refactor behaviour; exact-equality contract."
+}
