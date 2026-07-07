@@ -1,1 +1,0 @@
-# This is a utilities Python script for temporary functions. Strive to keep this empty! Putting functions here is a bit lazy.

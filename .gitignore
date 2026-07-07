@@ -1,8 +1,41 @@
-figures
+# Python
+__pycache__/
 *.pyc
-.ipynb_checkpoints
+*.egg-info/
+build/
+dist/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+
+# Logs
+*.log
+
+# macOS
+.DS_Store
+
+# Editor / assistant local settings
+.vscode/
+.claude/
+
+# Local environment leftovers
 miniconda.sh
-presentation/CompleNet2025/data
-manuscript/data/impact_analysis/graphs
-manuscript/data/impact_analysis/configs
-.gitignore
+
+# Generated figure output (scoped on purpose: a bare "figures" rule used to
+# ignore every figures/ dir repo-wide, which silently excluded the CSF
+# submission figures. Never ignore csf-submission/figures.)
+manuscript/figures/
+notebooks/figures/
+experiments/figures/
+archive/figures/
+presentation/figures/
+presentation/CompleNet2025/figures/
+
+# Large regenerable inputs (documented in data/README.md)
+presentation/CompleNet2025/data/
+manuscript/data/impact_analysis/graphs/
+manuscript/data/impact_analysis/configs/
