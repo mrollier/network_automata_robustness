@@ -48,13 +48,13 @@ def jacobian(
     # make matrix with N rows of the same state array
     states_all = np.tile(states, (N, 1))
     # calculate unperturbed next-timestep state vector (N times in parallel)
-    states_all_next = np.array(model.step(edges, tc.tensor(states_all)), dtype=int)
+    states_all_next = model.step(edges, tc.tensor(states_all)).numpy().astype(int)
     states_next = states_all_next[0]
 
     # make matrix with all possible single-defect perturbations
     states_defect_all = (np.tile(states, (N, 1)) + np.diag(np.ones(N, dtype=int))) % 2
     # calculate perturbed next-timestep state vector (N times in parallel)
-    states_defect_all_next = np.array(model.step(edges, tc.tensor(states_defect_all)), dtype=int)
+    states_defect_all_next = model.step(edges, tc.tensor(states_defect_all)).numpy().astype(int)
 
     # compile Jacobian with XOR operator (the Boolean derivative)
     J = (states_all_next + states_defect_all_next) % 2

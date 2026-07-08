@@ -239,11 +239,11 @@ def get_derrida_arrays(
     graph.to_undirected()
 
     # run the model for a single time step for the various initial conditions
-    next_configs = np.array(model.step(edges, tc.tensor(init_configs)), dtype=int)
+    next_configs = model.step(edges, tc.tensor(init_configs)).numpy().astype(int)
     # copy the output as many times as required (for points_per_rho)
     next_config_all = np.tile(next_configs, (points_per_rho * num_rhos, 1))
     # run the model for a single time step for all the defected initial conditions
-    next_config_defect_all = np.array(model.step(edges, tc.tensor(init_configs_defect_all)), dtype=int)
+    next_config_defect_all = model.step(edges, tc.tensor(init_configs_defect_all)).numpy().astype(int)
 
     # find the normalised Hamming distance between both new configurations
     input_defect_density = np.mean(defects_all, axis=1)
