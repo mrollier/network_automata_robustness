@@ -48,9 +48,27 @@ llna sweep --network-type random --resolution 5 --L 30 --T 100 \
 
 ## Related data elsewhere
 
-- `manuscript/data/` — `.npy` inputs for the manuscript figure notebooks
-  (totalitarian rule tables, final-state densities, FSSP success rates),
-  produced by `RUN_AGAIN`-guarded cells in those notebooks.
+- `manuscript/data/` — inputs for the manuscript figure notebooks. The
+  morley-rule robustness intermediates of `essential_metrics-figures.ipynb`
+  are produced by `manuscript/regenerate_intermediates.py` (seeded, batched
+  on `llna.sweep`; the notebook's `RUN_AGAIN` cells call into it):
+
+  | File | Product | In git? |
+  |---|---|---|
+  | `state_density_time_series.h5`, `defect_density_time_series.h5` | `time-series` | yes (small) |
+  | `hamming_weights.h5`, `boolean_sensitivities.h5` | `hw-bs` | yes (small) |
+  | `final_state_densities.h5`, `final_defect_densities.h5` | `vs-init-dens` + `vs-rewiring` | no (~110 MB each; raw ensembles) |
+
+  Recreate the two large files from a fresh clone with:
+
+  ```bash
+  python manuscript/regenerate_intermediates.py vs-init-dens vs-rewiring --seed 42
+  ```
+
+  The committed files were generated with seed 42; every HDF5 group carries
+  provenance attrs (params, seed, git commit, llna version, timestamp).
+  Other `.npy` inputs there (totalitarian rule tables, FSSP success rates)
+  come from `RUN_AGAIN` cells in the notebooks themselves.
 - Legacy TEP archives (graphs/info/teps of the original study) were removed
   from the repository in the 2026-07 cleanup; copies live in the external
   backup (see `legacy/README.md`).

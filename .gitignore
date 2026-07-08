@@ -39,3 +39,7 @@ presentation/CompleNet2025/figures/
 presentation/CompleNet2025/data/
 manuscript/data/impact_analysis/graphs/
 manuscript/data/impact_analysis/configs/
+# ~110 MB each (raw ensembles); regenerate with
+#   python manuscript/regenerate_intermediates.py vs-init-dens vs-rewiring
+manuscript/data/final_state_densities.h5
+manuscript/data/final_defect_densities.h5

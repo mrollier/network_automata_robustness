@@ -50,5 +50,25 @@ same workload batched (~35 s per graph-ensemble chunk pass, ~18 min total at
 default settings), is seeded end-to-end, and resumes from the last completed
 rule chunk after interruption.
 
+## Manuscript intermediates (`manuscript/regenerate_intermediates.py`, 2026-07)
+
+The morley-rule RUN_AGAIN cells of `essential_metrics-figures.ipynb` were
+rewritten onto `llna.sweep.evolve_defect_pairs` (all densities x configs of a
+graph evolve in one batched call; clean/defected twins in lockstep, so each
+state h5 and its defect twin come from the same run). Wall times for the full
+seed-42 regeneration on CPU:
+
+| Product | Workload | Wall time |
+|---|---|---|
+| `time-series` | 3 types x 30 graphs x (3 dens x 30 configs) pairs, T=100, N=900 | ~1 min |
+| `vs-init-dens` | 3 types x 30 graphs x (51 dens x 30 configs) pairs | ~5 min (3.3 s/graph) |
+| `vs-rewiring` | 51 p-values x 30 graphs x (3 dens x 30 configs) pairs | 620 s |
+| `hw-bs` | 528 rules x 21 distinct degrees, metric table reused across 90 graphs | 5.8 s |
+
+The legacy cells ran the same workloads with per-graph Python loops and
+unbatched `LLNA.forward` calls plus O(n^2) `vstack` accumulation ("takes a
+long time!" per their own comments — hours in total); the rewrite finishes
+everything in ~16 min and is seeded end-to-end.
+
 Reproduce any row with the snippets in this file's git history or via
 `llna sweep --help`.
